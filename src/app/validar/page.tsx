@@ -37,39 +37,41 @@ export default function ValidarPage() {
   }
 
   async function handleValidar() {
-  setErro("");
+    setErro("");
 
-  if (!plataforma || !nick) return;
+    if (!plataforma || !nick) return;
 
-  try {
-    const res = await fetch("/api/validar", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        nick,
-        plataforma,
-      }),
-    });
+    try {
+      const res = await fetch(
+        "http://sp-13.magnohost.com.br:25501/validate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer MAVEN_21012026",
+          },
+          body: JSON.stringify({ nick }),
+        }
+      );
 
-    const data = await res.json();
 
-    if (!res.ok) {
-      setErro(data.error || "Erro ao validar");
-      return;
+      const data = await res.json();
+
+      if (!res.ok) {
+        setErro(data.error || "Erro ao validar");
+        return;
+      }
+
+      localStorage.setItem(
+        "maven_account",
+        JSON.stringify({ nick, plataforma })
+      );
+
+      router.push("/");
+    } catch {
+      setErro("Erro de conexão com o servidor");
     }
-
-    localStorage.setItem(
-      "maven_account",
-      JSON.stringify({ nick, plataforma })
-    );
-
-    router.push("/");
-  } catch {
-    setErro("Erro de conexão com o servidor");
   }
-}
 
   function trocarConta() {
     localStorage.removeItem("maven_account");
@@ -138,22 +140,20 @@ export default function ValidarPage() {
           <div className="grid grid-cols-2 gap-3 mb-6">
             <button
               onClick={selecionarJava}
-              className={`py-3 rounded-xl font-semibold ${
-                plataforma === "java"
+              className={`py-3 rounded-xl font-semibold ${plataforma === "java"
                   ? "bg-red-500"
                   : "bg-[#0f1623] hover:bg-[#1f2937]"
-              }`}
+                }`}
             >
               🖥️ Java
             </button>
 
             <button
               onClick={selecionarBedrock}
-              className={`py-3 rounded-xl font-semibold ${
-                plataforma === "bedrock"
+              className={`py-3 rounded-xl font-semibold ${plataforma === "bedrock"
                   ? "bg-red-500"
                   : "bg-[#0f1623] hover:bg-[#1f2937]"
-              }`}
+                }`}
             >
               📱 Bedrock
             </button>
