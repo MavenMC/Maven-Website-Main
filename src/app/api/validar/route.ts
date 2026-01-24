@@ -12,7 +12,6 @@ export async function POST(req: Request) {
     const body: Body = await req.json();
     const { nick, plataforma } = body;
 
-    // validações básicas
     if (!nick || !plataforma) {
       return NextResponse.json(
         { error: "Dados inválidos" },
@@ -27,7 +26,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔗 CHAMADA REAL PARA O SERVIDOR MINECRAFT (server-side)
     const res = await fetch(
       "http://sp-13.magnohost.com.br:25501/validate",
       {
@@ -51,7 +49,6 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: "Conta validada e liberada no servidor",
       data: {
         nick: data.nick,
         uuid: data.uuid,
@@ -59,9 +56,8 @@ export async function POST(req: Request) {
       },
     });
 
-  } catch (error) {
-    console.error("ERRO VALIDAR:", error);
-
+  } catch (err) {
+    console.error("ERRO API VALIDAR:", err);
     return NextResponse.json(
       { error: "Erro ao conectar com o servidor" },
       { status: 500 }
