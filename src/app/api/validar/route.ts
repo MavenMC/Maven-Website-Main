@@ -1,3 +1,5 @@
+export const runtime = "nodejs";
+
 import { NextResponse } from "next/server";
 
 type Body = {
@@ -25,7 +27,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔗 CHAMADA REAL PARA O SERVIDOR MINECRAFT
+    // 🔗 CHAMADA REAL PARA O SERVIDOR MINECRAFT (server-side)
     const res = await fetch(
       "http://sp-13.magnohost.com.br:25501/validate",
       {
