@@ -40,9 +40,18 @@ export default function ValidarPage() {
     setErro("");
     setLoading(true);
 
-    if (!plataforma || !nick) {
+    if (!plataforma) {
+      setErro("Selecione a plataforma");
       setLoading(false);
       return;
+    }
+
+    if (!nick) {
+      setErro("Informe o nick");
+      setLoading(false);
+      return;
+
+
     }
 
     try {
@@ -66,10 +75,15 @@ export default function ValidarPage() {
 
       localStorage.setItem(
         "maven_account",
-        JSON.stringify({ nick, plataforma })
+        JSON.stringify({
+          nick: data.data.nick,
+          uuid: data.data.uuid,
+          plataforma: data.data.plataforma,
+        })
       );
 
       router.push("/");
+
     } catch (err) {
       console.error(err);
       setErro("Erro de conexão com o servidor");
@@ -129,7 +143,7 @@ export default function ValidarPage() {
 
   /* 🧾 TELA DE VALIDAÇÃO */
   return (
-    <div className="min-h-screen bg-[#222525] text-white">
+    <div className="min-h-screen text-white">
       <BackgroundHeader />
 
       <main className="flex items-center justify-center px-4 py-16">
@@ -145,22 +159,20 @@ export default function ValidarPage() {
           <div className="grid grid-cols-2 gap-3 mb-6">
             <button
               onClick={selecionarJava}
-              className={`py-3 rounded-xl font-semibold ${
-                plataforma === "java"
-                  ? "bg-red-500"
-                  : "bg-[#0f1623] hover:bg-[#1f2937]"
-              }`}
+              className={`py-3 rounded-xl font-semibold ${plataforma === "java"
+                ? "bg-red-500"
+                : "bg-[#0f1623] hover:bg-[#1f2937]"
+                }`}
             >
               🖥️ Java
             </button>
 
             <button
               onClick={selecionarBedrock}
-              className={`py-3 rounded-xl font-semibold ${
-                plataforma === "bedrock"
-                  ? "bg-red-500"
-                  : "bg-[#0f1623] hover:bg-[#1f2937]"
-              }`}
+              className={`py-3 rounded-xl font-semibold ${plataforma === "bedrock"
+                ? "bg-red-500"
+                : "bg-[#0f1623] hover:bg-[#1f2937]"
+                }`}
             >
               📱 Bedrock
             </button>
@@ -168,10 +180,21 @@ export default function ValidarPage() {
 
           <input
             value={nick}
-            onChange={(e) => setNick(e.target.value)}
+            onChange={(e) => {
+              let value = e.target.value;
+
+              if (plataforma === "bedrock") {
+                // remove qualquer * digitado e força apenas um no início
+                value = value.replace(/\*/g, "");
+                value = `*${value}`;
+              }
+
+              setNick(value);
+            }}
             placeholder="Seu nick no jogo"
             className="w-full px-4 py-3 rounded-xl bg-white text-black mb-2"
           />
+
 
           {erro && (
             <p className="text-sm text-red-400 mb-2">
