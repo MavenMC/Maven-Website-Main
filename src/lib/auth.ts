@@ -1,0 +1,159 @@
+import type { NextAuthOptions } from "next-auth";
+import DiscordProvider from "next-auth/providers/discord";
+import { dbQuery } from "@/lib/db";
+import { notifyLogin } from "@/lib/discord";
+
+type PlayerAccountRow = {
+  discord_id: string;
+  email: string | null;
+  discord_username: string | null;
+  discord_avatar: string | null;
+  minecraft_name: string | null;
+  account_type: string | null;
+  verified: number | null;
+};
+
+const Discord = (DiscordProvider as unknown as { default?: typeof DiscordProvider }).default ?? DiscordProvider;
+
+async function getPlayerByDiscordId(discordId: string) {
+  const rows = await dbQuery<PlayerAccountRow[]>(
+    "SELECT discord_id, email, discord_username, discord_avatar, minecraft_name, account_type, verified FROM player_accounts WHERE discord_id = :discord_id LIMIT 1",
+    { discord_id: discordId },
+  );
+  return rows[0] ?? null;
+}
+
+async function getPlayerByEmail(email: string) {
+  const rows = await dbQuery<PlayerAccountRow[]>(
+    "SELECT discord_id, email, discord_username, discord_avatar, minecraft_name, account_type, verified FROM player_accounts WHERE email = :email LIMIT 1",
+    { email },
+  );
+  return rows[0] ?? null;
+}
+
+async function ensurePlayerIdentity({
+  providerAccountId,
+  email,
+  name,
+  image,
+}: {
+  providerAccountId: string;
+  email?: string | null;
+  name?: string | null;
+  image?: string | null;
+}) {
+  if (!providerAccountId) return null;
+
+  const existing = await getPlayerByDiscordId(providerAccountId);
+  if (existing) {
+    await dbQuery(
+      "UPDATE player_accounts SET email = COALESCE(:email, email), discord_username = COALESCE(:name, discord_username), discord_avatar = COALESCE(:avatar, discord_avatar), last_updated = NOW() WHERE discord_id = :discord_id",
+      {
+        discord_id: providerAccountId,
+        email: email ?? null,
+        name: name ?? null,
+        avatar: image ?? null,
+      },
+    );
+    return providerAccountId;
+  }
+
+  if (email) {
+    const byEmail = await getPlayerByEmail(email);
+    if (byEmail) {
+      await dbQuery(
+        "UPDATE player_accounts SET discord_id = :discord_id, discord_username = COALESCE(:name, discord_username), discord_avatar = COALESCE(:avatar, discord_avatar), last_updated = NOW() WHERE email = :email",
+        {
+          discord_id: providerAccountId,
+          name: name ?? null,
+          avatar: image ?? null,
+          email,
+        },
+      );
+      return providerAccountId;
+    }
+  }
+
+  await dbQuery(
+    `INSERT INTO player_accounts
+      (discord_id, minecraft_uuid, minecraft_name, email, discord_username, discord_avatar, account_type, verified, linked_at, last_updated)
+     VALUES
+      (:discord_id, NULL, NULL, :email, :discord_username, :discord_avatar, :account_type, 0, NOW(), NOW())`,
+    {
+      discord_id: providerAccountId,
+      email: email ?? null,
+      discord_username: name ?? null,
+      discord_avatar: image ?? null,
+      account_type: "pirata",
+    },
+  );
+
+  return providerAccountId;
+}
+
+export const authOptions: NextAuthOptions = {
+  providers: [
+    Discord({
+      clientId: process.env.DISCORD_CLIENT_ID ?? "",
+      clientSecret: process.env.DISCORD_CLIENT_SECRET ?? "",
+      authorization: {
+        params: {
+          scope: "identify email guilds",
+        },
+      },
+      checks: ["pkce"],
+      profile(profile) {
+        return {
+          id: profile.id,
+          name: profile.username,
+          email: profile.email,
+          image: profile.avatar
+            ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
+            : null,
+          username: profile.username,
+        };
+      },
+    }),
+  ],
+  session: { strategy: "jwt" },
+  callbacks: {
+    async jwt({ token, user, account }) {
+      if (account?.provider === "discord" && account.providerAccountId) {
+        const playerId = await ensurePlayerIdentity({
+          providerAccountId: String(account.providerAccountId),
+          email: user?.email ?? null,
+          name: user?.name ?? null,
+          image: user?.image ?? null,
+        });
+
+        if (playerId) {
+          (token as typeof token & { role?: string; playerId?: string }).role = "player";
+          (token as typeof token & { role?: string; playerId?: string }).playerId = playerId;
+
+          try {
+            const player = await getPlayerByDiscordId(playerId);
+            if (player) {
+              await notifyLogin(player);
+            }
+          } catch (error) {
+            console.error("Erro ao notificar login:", error);
+          }
+        }
+      }
+
+      return token;
+    },
+    async session({ session, token }) {
+      if (session.user) {
+        const typedToken = token as typeof token & { role?: string; playerId?: string };
+        if (typedToken.role) session.user.role = typedToken.role;
+        if (typedToken.playerId) session.user.playerId = typedToken.playerId;
+      }
+      return session;
+    },
+  },
+  pages: {
+    signIn: "/login",
+  },
+  secret: process.env.NEXTAUTH_SECRET,
+};
