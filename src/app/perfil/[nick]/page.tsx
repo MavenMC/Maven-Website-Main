@@ -2,10 +2,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth";
-import { User } from "lucide-react";
+import { MessageCircle, Music2, User, Youtube } from "lucide-react";
 import { authOptions } from "@/lib/auth";
 import { dbQuery } from "@/lib/db";
 import { formatShortDate } from "@/lib/date";
+
+export const dynamic = "force-dynamic";
 
 const rankTags: Record<
   string,
@@ -145,6 +147,21 @@ function formatDate(value: Date | string | null) {
   return formatShortDate(parsed) || "";
 }
 
+function getSocialMeta(label: string) {
+  const key = label.toLowerCase();
+  if (key.includes("discord")) return { icon: MessageCircle, name: "Discord" };
+  if (key.includes("youtube")) return { icon: Youtube, name: "YouTube" };
+  if (key.includes("tiktok")) return { icon: Music2, name: "TikTok" };
+  return { icon: MessageCircle, name: label };
+}
+
+function getSocialHandle(url: string) {
+  const match = url.match(/@([a-zA-Z0-9._-]+)/);
+  if (match?.[1]) return `@${match[1]}`;
+  const tail = url.split("/").pop();
+  return tail ? `@${tail}` : url;
+}
+
 function toFloat(value: number | string | null) {
   if (value === null || value === undefined) return 0;
   if (typeof value === "string") return Number(value);
@@ -207,24 +224,28 @@ export default async function PublicProfilePage({
     notFound();
   }
 
-  let statsRows = await dbQuery<AccountStatsRow[]>(
-    "SELECT uuid, current_nick, total_playtime, mobs_killed, pvp_kills, blocks_broken, deaths, distance_traveled FROM account_stats WHERE LOWER(current_nick) = LOWER(:nick) LIMIT 1",
+  // Primeiro busca no player_accounts (fonte primária de UUIDs)
+  const accountRows = await dbQuery<AccountNickRow[]>(
+    "SELECT minecraft_uuid, minecraft_name FROM player_accounts WHERE LOWER(minecraft_name) = LOWER(:nick) LIMIT 1",
     { nick },
   );
-  let stats = statsRows[0] ?? null;
+  const account = accountRows[0] ?? null;
+  
+  let stats: AccountStatsRow | null = null;
+  let uuid: string | null = null;
 
-  if (!stats) {
-    const accountRows = await dbQuery<AccountNickRow[]>(
-      "SELECT minecraft_uuid, minecraft_name FROM player_accounts WHERE LOWER(minecraft_name) = LOWER(:nick) LIMIT 1",
-      { nick },
+  if (account?.minecraft_uuid) {
+    // SEMPRE usa o UUID do player_accounts (mesma fonte que a página de edição)
+    uuid = account.minecraft_uuid;
+    const statsRows = await dbQuery<AccountStatsRow[]>(
+      "SELECT uuid, current_nick, total_playtime, mobs_killed, pvp_kills, blocks_broken, deaths, distance_traveled FROM account_stats WHERE uuid = :uuid LIMIT 1",
+      { uuid },
     );
-    const account = accountRows[0] ?? null;
-    if (account?.minecraft_uuid) {
-      statsRows = await dbQuery<AccountStatsRow[]>(
-        "SELECT uuid, current_nick, total_playtime, mobs_killed, pvp_kills, blocks_broken, deaths, distance_traveled FROM account_stats WHERE uuid = :uuid LIMIT 1",
-        { uuid: account.minecraft_uuid },
-      );
-      stats = statsRows[0] ?? {
+    stats = statsRows[0] ?? null;
+    
+    // Se não encontrou stats, cria um mínimo
+    if (!stats) {
+      stats = {
         uuid: account.minecraft_uuid,
         current_nick: account.minecraft_name,
         total_playtime: null,
@@ -237,10 +258,23 @@ export default async function PublicProfilePage({
     }
   }
 
+  // Fallback: se não encontrou em player_accounts, tenta direto no account_stats
   if (!stats) {
+    const statsRows = await dbQuery<AccountStatsRow[]>(
+      "SELECT uuid, current_nick, total_playtime, mobs_killed, pvp_kills, blocks_broken, deaths, distance_traveled FROM account_stats WHERE LOWER(current_nick) = LOWER(:nick) LIMIT 1",
+      { nick },
+    );
+    stats = statsRows[0] ?? null;
+    if (stats) {
+      uuid = stats.uuid;
+    }
+  }
+
+  if (!stats || !uuid) {
     notFound();
   }
 
+  // Usa o UUID correto para todas as buscas
   let viewerUuid: string | null = null;
   if (session?.user?.playerId) {
     const viewerRows = await dbQuery<ViewerAccountRow[]>(
@@ -250,11 +284,11 @@ export default async function PublicProfilePage({
     viewerUuid = viewerRows[0]?.minecraft_uuid ?? null;
   }
 
-  const isOwner = viewerUuid && viewerUuid === stats.uuid;
+  const isOwner = viewerUuid && viewerUuid === uuid;
 
   const profileRows = await dbQuery<ProfileRow[]>(
     "SELECT uuid, apelido, bio, estatisticas_publicas, privacidade, cor_favorita FROM perfil_jogadores WHERE uuid = :uuid LIMIT 1",
-    { uuid: stats.uuid },
+    { uuid },
   );
   const profile = profileRows[0] ?? null;
   const privacy = profile?.privacidade ?? "PUBLICA";
@@ -275,7 +309,7 @@ export default async function PublicProfilePage({
 
   const assetRows = await dbQuery<AssetRow[]>(
     "SELECT banner_url, avatar_url, ring_url FROM perfil_jogadores_assets WHERE uuid = :uuid LIMIT 1",
-    { uuid: stats.uuid },
+    { uuid },
   );
   const assets = assetRows[0] ?? null;
 
@@ -284,42 +318,68 @@ export default async function PublicProfilePage({
      FROM perfil_jogadores_redes
      WHERE uuid = :uuid ${isOwner ? "" : "AND is_public = 1"}
      ORDER BY sort_order ASC, id ASC`,
-    { uuid: stats.uuid },
+    { uuid },
   );
 
+  // Busca TODOS os ranks ativos do jogador
   const rankRows = await dbQuery<RankRow[]>(
-    "SELECT rank_id, expires_at, is_permanent FROM player_ranks WHERE player_uuid = :uuid AND (is_permanent = 1 OR expires_at >= NOW()) ORDER BY granted_at DESC LIMIT 1",
-    { uuid: stats.uuid },
+    "SELECT rank_id, expires_at, is_permanent FROM player_ranks WHERE player_uuid = :uuid AND (is_permanent = 1 OR expires_at >= NOW()) ORDER BY granted_at DESC",
+    { uuid },
   );
+  const ranks = rankRows.map((r) => ({
+    ...r,
+    tag: rankTags[String(r.rank_id).toLowerCase()],
+  })).filter((r) => r.tag);
+
+  // Rank principal (o mais recente)
   const rank = rankRows[0] ?? null;
   const rankTag = rank ? rankTags[String(rank.rank_id).toLowerCase()] : null;
 
-  const accountRows = await dbQuery<LinkedAccountRow[]>(
+  // Buscar tag de clã (se existir)
+  type ClanRow = {
+    clan_tag: string | null;
+    clan_name: string | null;
+    clan_color: string | null;
+  };
+  
+  let clanInfo: ClanRow | null = null;
+  try {
+    const clanRows = await dbQuery<ClanRow[]>(
+      "SELECT c.tag as clan_tag, c.name as clan_name, c.color as clan_color FROM clan_members cm JOIN clans c ON c.id = cm.clan_id WHERE cm.player_uuid = :uuid AND cm.active = 1 LIMIT 1",
+      { uuid },
+    );
+    clanInfo = clanRows[0] ?? null;
+  } catch {
+    // Tabela de clãs não existe ainda
+  }
+
+  const accountLinkedRows = await dbQuery<LinkedAccountRow[]>(
     "SELECT discord_id, minecraft_name, account_type, is_bedrock FROM player_accounts WHERE minecraft_uuid = :uuid LIMIT 1",
-    { uuid: stats.uuid },
+    { uuid },
   );
-  const account = accountRows[0] ?? null;
-  const isOriginal = account?.account_type === "original" || account?.account_type === "java_original";
-  const isBedrock = account?.account_type === "bedrock" || account?.is_bedrock === 1;
-  const skinSource = account?.minecraft_name ?? stats.current_nick ?? "";
+  const accountLinked = accountLinkedRows[0] ?? null;
+  const isOriginal = accountLinked?.account_type === "original" || accountLinked?.account_type === "java_original";
+  const isBedrock = accountLinked?.account_type === "bedrock" || accountLinked?.is_bedrock === 1;
+  const skinSource = accountLinked?.minecraft_name ?? stats.current_nick ?? "";
   const minecraftAvatar = isOriginal && !isBedrock && skinSource
     ? `https://minotar.net/helm/${encodeURIComponent(skinSource)}/128`
     : null;
 
   const badges = await dbQuery<BadgeRow[]>(
     "SELECT c.nome, c.descricao, c.icone FROM conquistas_jogadores cj JOIN conquistas c ON c.id = cj.conquista_id WHERE cj.jogador_uuid = :uuid AND cj.concluida = 1 ORDER BY cj.concluida_em DESC LIMIT 8",
-    { uuid: stats.uuid },
+    { uuid },
   );
 
-  const staffRows = account?.discord_id
+  const staffNick = accountLinked?.minecraft_name ?? stats.current_nick ?? "";
+  const staffRows = staffNick
     ? await dbQuery<StaffRoleRow[]>(
         `SELECT r.name AS role_name, r.color AS role_color
          FROM site_staff_members m
          LEFT JOIN site_staff_roles r ON r.id = m.role_id
-         WHERE m.active = 1 AND r.active = 1 AND m.discord_id = :discord_id
+         WHERE m.active = 1 AND r.active = 1 AND LOWER(m.minecraft) = LOWER(:minecraft)
          ORDER BY r.sort_order ASC, r.id ASC
          LIMIT 1`,
-        { discord_id: account.discord_id },
+        { minecraft: staffNick },
       )
     : [];
   const staffRole = staffRows[0] ?? null;
@@ -331,7 +391,7 @@ export default async function PublicProfilePage({
      WHERE p.author_uuid = :uuid AND p.active = 1
      ORDER BY p.created_at DESC, p.id DESC
      LIMIT 6`,
-    { uuid: stats.uuid },
+    { uuid },
   );
 
   const acceptedReports = await dbQuery<ReportRow[]>(
@@ -341,7 +401,7 @@ export default async function PublicProfilePage({
      WHERE r.reporter_uuid = :uuid AND r.status = 'ACEITO'
      ORDER BY r.reportadoEm DESC, r.id DESC
      LIMIT 6`,
-    { uuid: stats.uuid },
+    { uuid },
   );
 
   const punishedPlayers = await dbQuery<PunishedPlayerRow[]>(
@@ -351,12 +411,12 @@ export default async function PublicProfilePage({
      WHERE r.reporter_uuid = :uuid AND r.status = 'ACEITO'
      ORDER BY a.current_nick ASC
      LIMIT 6`,
-    { uuid: stats.uuid },
+    { uuid },
   );
 
   const reputationSummaryRows = await dbQuery<ReputationSummaryRow[]>(
     "SELECT AVG(rating) as avg_rating, COUNT(*) as total_count FROM perfil_jogadores_reputacoes WHERE target_uuid = :uuid",
-    { uuid: stats.uuid },
+    { uuid },
   );
   const reputationSummary = reputationSummaryRows[0] ?? { avg_rating: 0, total_count: 0 };
   const reputationAverage = toFloat(reputationSummary.avg_rating);
@@ -365,7 +425,7 @@ export default async function PublicProfilePage({
   const viewerVoteRows = viewerUuid
     ? await dbQuery<ReputationVoteRow[]>(
         "SELECT rating, updated_at FROM perfil_jogadores_reputacoes WHERE rater_uuid = :rater_uuid AND target_uuid = :target_uuid LIMIT 1",
-        { rater_uuid: viewerUuid, target_uuid: stats.uuid },
+        { rater_uuid: viewerUuid, target_uuid: uuid },
       )
     : [];
   const viewerVote = viewerVoteRows[0] ?? null;
@@ -379,268 +439,264 @@ export default async function PublicProfilePage({
       : undefined;
 
   return (
-    <section className="section profile-page">
-      <div className="container">
-        <div className="profile-hero">
-          <div className="profile-banner" style={bannerStyle}>
-            <div className="profile-banner-overlay" />
-            <div className="profile-identity">
-              <div className="profile-avatar-shell">
+    <section className="section discord-profile-page">
+      <div className="discord-profile-container">
+        {/* Banner */}
+        <div className="discord-profile-banner" style={bannerStyle}>
+          {!assets?.banner_url && !profile?.cor_favorita && (
+            <div className="discord-profile-banner-default" />
+          )}
+        </div>
+
+        {/* Corpo principal */}
+        <div className="discord-profile-body">
+          {/* Avatar e header */}
+          <div className="discord-profile-header">
+            <div className="discord-profile-header-content">
+              <div className="discord-profile-avatar-wrapper">
                 {assets?.ring_url && (
-                  <img src={assets.ring_url} alt="Moldura" className="profile-ring" />
+                  <img src={assets.ring_url} alt="Moldura" className="discord-profile-ring" />
                 )}
                 {assets?.avatar_url ? (
-                  <img
-                    src={assets.avatar_url}
-                    alt={displayName}
-                    className="profile-avatar-lg"
-                  />
+                  <img src={assets.avatar_url} alt={displayName} className="discord-profile-avatar" />
                 ) : minecraftAvatar ? (
-                  <img src={minecraftAvatar} alt={displayName} className="profile-avatar-lg" />
+                  <img src={minecraftAvatar} alt={displayName} className="discord-profile-avatar" />
                 ) : (
-                  <div className="profile-avatar-lg profile-avatar-fallback">
-                    <User size={40} aria-hidden="true" />
+                  <div className="discord-profile-avatar discord-profile-avatar-fallback">
+                    <User size={64} />
                   </div>
                 )}
               </div>
-              <div className="profile-headline">
-                <span className="section-kicker">Perfil publico</span>
-                <h1>{displayName}</h1>
-                <div className="profile-meta">
-                  <span className="profile-nick">@{stats.current_nick ?? "-"}</span>
-                  {rankTag && (
-                    <span
-                      className="status-pill badge"
-                      style={{
-                        background: rankTag.gradient || rankTag.color,
-                        boxShadow: rankTag.color ? `0 8px 20px ${rankTag.color}55` : undefined,
-                      }}
-                    >
-                      {rankTag.name}
-                    </span>
-                  )}
-                  {staffRole?.role_name && (
-                    <span
-                      className="staff-role-badge"
-                      style={{
-                        background: staffRole.role_color
-                          ? `${staffRole.role_color}1A`
-                          : "rgba(255, 255, 255, 0.08)",
-                        borderColor: staffRole.role_color
-                          ? `${staffRole.role_color}4D`
-                          : "rgba(255, 255, 255, 0.2)",
-                        color: staffRole.role_color ?? "rgb(var(--text))",
-                      }}
-                    >
-                      {staffRole.role_name}
-                    </span>
+
+              <div className="discord-profile-name-section">
+                <h1 className="discord-profile-name">{displayName}</h1>
+                <span className="discord-profile-username">@{stats.current_nick ?? "-"}</span>
+              </div>
+            </div>
+
+            {isOwner && (
+              <Link href="/perfil" className="btn secondary btn-sm discord-profile-edit-btn">
+                Editar perfil
+              </Link>
+            )}
+          </div>
+
+          <div className="discord-profile-content">
+            {/* Coluna principal */}
+            <div className="discord-profile-main">
+              {/* Cargos / Roles */}
+              {(ranks.length > 0 || staffRole || clanInfo) && (
+                <div className="discord-section">
+                  <h3 className="discord-section-title">CARGOS</h3>
+                  <div className="discord-roles-list">
+                    {/* Tag de Clã */}
+                    {clanInfo?.clan_tag && (
+                      <div className="discord-role discord-role-clan">
+                        <div
+                          className="discord-role-color"
+                          style={{
+                            background: clanInfo.clan_color || "rgba(var(--accent), 0.5)",
+                          }}
+                        />
+                        <div className="discord-role-info">
+                          <div className="discord-role-name">[{clanInfo.clan_tag}] {clanInfo.clan_name}</div>
+                          <div className="discord-role-meta">Clã</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Staff Role */}
+                    {staffRole?.role_name && (
+                      <div className="discord-role">
+                        <div
+                          className="discord-role-color"
+                          style={{
+                            background: staffRole.role_color || "rgba(var(--primary), 0.5)",
+                          }}
+                        />
+                        <div className="discord-role-info">
+                          <div className="discord-role-name">{staffRole.role_name}</div>
+                          <div className="discord-role-meta">Equipe</div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Todos os Ranks */}
+                    {ranks.map((r, idx) => (
+                      <div key={`${r.rank_id}-${idx}`} className="discord-role">
+                        <div
+                          className="discord-role-color"
+                          style={{
+                            background: r.tag?.gradient || r.tag?.color || "rgba(var(--secondary), 0.5)",
+                          }}
+                        />
+                        <div className="discord-role-info">
+                          <div className="discord-role-name">{r.tag?.name || String(r.rank_id).toUpperCase()}</div>
+                          <div className="discord-role-meta">
+                            {r.is_permanent ? "Permanente" : `Expira ${new Date(r.expires_at!).toLocaleDateString("pt-BR")}`}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Sobre */}
+              <div className="discord-section">
+                <h3 className="discord-section-title">SOBRE MIM</h3>
+                <p className="discord-bio">{profile?.bio?.trim() || "Nenhuma bio adicionada."}</p>
+              </div>
+
+              {/* Stats em linha */}
+              {showStats && (
+                <div className="discord-section">
+                  <h3 className="discord-section-title">ESTATÍSTICAS</h3>
+                  <div className="discord-stats-grid">
+                    <div className="discord-stat">
+                      <span className="discord-stat-label">Tempo jogado</span>
+                      <span className="discord-stat-value">{formatPlaytime(stats.total_playtime)}</span>
+                    </div>
+                    <div className="discord-stat">
+                      <span className="discord-stat-label">PVP Kills</span>
+                      <span className="discord-stat-value">{formatStat(stats.pvp_kills)}</span>
+                    </div>
+                    <div className="discord-stat">
+                      <span className="discord-stat-label">Mobs abatidos</span>
+                      <span className="discord-stat-value">{formatStat(stats.mobs_killed)}</span>
+                    </div>
+                    <div className="discord-stat">
+                      <span className="discord-stat-label">Blocos quebrados</span>
+                      <span className="discord-stat-value">{formatStat(stats.blocks_broken)}</span>
+                    </div>
+                    <div className="discord-stat">
+                      <span className="discord-stat-label">Distância percorrida</span>
+                      <span className="discord-stat-value">{formatStat(stats.distance_traveled)}</span>
+                    </div>
+                    <div className="discord-stat">
+                      <span className="discord-stat-label">Mortes</span>
+                      <span className="discord-stat-value">{formatStat(stats.deaths)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Fórum */}
+              {forumPosts.length > 0 && (
+                <div className="discord-section">
+                  <h3 className="discord-section-title">POSTAGENS NO FÓRUM ({forumPosts.length})</h3>
+                  <div className="discord-list">
+                    {forumPosts.map((post) => (
+                      <Link key={post.id} href={`/forum/topico/${post.id}`} className="discord-list-item">
+                        <div>
+                          <div className="discord-list-title">{post.title}</div>
+                          <div className="discord-list-meta">{post.category_title ?? "Comunidade"} • {formatDate(post.created_at)}</div>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Sidebar */}
+            <div className="discord-profile-sidebar">
+              {/* Redes sociais */}
+              {socials.length > 0 && (
+                <div className="discord-sidebar-section">
+                  <h3 className="discord-sidebar-title">CONEXÕES</h3>
+                  <div className="discord-connections">
+                    {socials.map((social) => {
+                      const meta = getSocialMeta(social.label);
+                      const Icon = meta.icon;
+                      return (
+                        <a
+                          key={social.id}
+                          href={social.url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="discord-connection"
+                        >
+                          <div className="discord-connection-icon">
+                            <Icon size={20} />
+                          </div>
+                          <div className="discord-connection-info">
+                            <div className="discord-connection-name">{meta.name}</div>
+                            <div className="discord-connection-handle">{getSocialHandle(social.url)}</div>
+                          </div>
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Conquistas/Badges */}
+              {badges.length > 0 && (
+                <div className="discord-sidebar-section">
+                  <h3 className="discord-sidebar-title">CONQUISTAS ({badges.length})</h3>
+                  <div className="discord-badges-compact">
+                    {badges.slice(0, 8).map((badge) => (
+                      <div key={badge.nome} className="discord-badge-compact" title={`${badge.nome} - ${badge.descricao}`}>
+                        {badge.icone ? (
+                          <span className="discord-badge-compact-icon">{badge.icone}</span>
+                        ) : (
+                          <span className="discord-badge-compact-icon">🏆</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Reputação */}
+              <div className="discord-sidebar-section">
+                <h3 className="discord-sidebar-title">REPUTAÇÃO</h3>
+                <div className="discord-reputation">
+                  <div className="discord-reputation-score">
+                    <span className="discord-reputation-value">{reputationAverage.toFixed(1)}</span>
+                    <span className="discord-reputation-label">de 5.0</span>
+                  </div>
+                  <span className="discord-reputation-count">{reputationCount} avaliaç{reputationCount === 1 ? "ão" : "ões"}</span>
+
+                  {viewerUuid && !isOwner && (
+                    <form action={submitReputation} className="discord-reputation-form">
+                      <input type="hidden" name="target_uuid" value={uuid} />
+                      <input type="hidden" name="nick" value={stats.current_nick ?? ""} />
+                      <select name="rating" defaultValue={Number(viewerVote?.rating ?? 0) || 5} className="discord-select">
+                        <option value={5}>★★★★★ Excelente</option>
+                        <option value={4}>★★★★☆ Muito bom</option>
+                        <option value={3}>★★★☆☆ Bom</option>
+                        <option value={2}>★★☆☆☆ Regular</option>
+                        <option value={1}>★☆☆☆☆ Ruim</option>
+                      </select>
+                      <button className="btn primary btn-sm" type="submit">
+                        Avaliar
+                      </button>
+                      {viewerVote?.updated_at && (
+                        <span className="discord-reputation-last">Última: {formatDate(viewerVote.updated_at)}</span>
+                      )}
+                    </form>
                   )}
                 </div>
-                {isOwner && (
-                  <div className="profile-actions">
-                    <Link href="/perfil" className="btn secondary btn-sm">
-                      Editar perfil
-                    </Link>
+              </div>
+
+              {/* Denúncias aceitas */}
+              {acceptedReports.length > 0 && (
+                <div className="discord-sidebar-section">
+                  <h3 className="discord-sidebar-title">DENÚNCIAS ACEITAS ({acceptedReports.length})</h3>
+                  <div className="discord-list-compact">
+                    {acceptedReports.slice(0, 5).map((report) => (
+                      <div key={report.id} className="discord-list-compact-item">
+                        <div className="discord-list-compact-name">{report.current_nick ?? "Jogador"}</div>
+                        <div className="discord-list-compact-desc">{report.motivo}</div>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="profile-quick">
-            <div className="card">
-              <span className="card-eyebrow">Tempo jogado</span>
-              <h3>{formatPlaytime(stats.total_playtime)}</h3>
-              <p className="muted">Atividade recente no servidor.</p>
-            </div>
-            <div className="card">
-              <span className="card-eyebrow">Combates</span>
-              <h3>{formatStat(stats.pvp_kills)}</h3>
-              <p className="muted">Vitorias em PVP.</p>
-            </div>
-            <div className="card">
-              <span className="card-eyebrow">Exploracao</span>
-              <h3>{formatStat(stats.distance_traveled)}</h3>
-              <p className="muted">Blocos percorridos.</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="profile-grid">
-          <div className="card">
-            <span className="card-eyebrow">Sobre</span>
-            <h3 className="card-title">Bio</h3>
-            <p className="muted">{profile?.bio?.trim() || "Sem bio publicada ainda."}</p>
-          </div>
-
-          <div className="card">
-            <span className="card-eyebrow">Social</span>
-            <h3 className="card-title">Conecte-se</h3>
-            {socials.length ? (
-              <div className="profile-socials">
-                {socials.map((social) => (
-                  <a
-                    key={social.id}
-                    href={social.url}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="profile-social-link"
-                  >
-                    {social.label}
-                  </a>
-                ))}
-              </div>
-            ) : (
-              <p className="muted">Nenhuma rede social publicada.</p>
-            )}
-          </div>
-
-          <div className="card">
-            <span className="card-eyebrow">Badges</span>
-            <h3 className="card-title">Conquistas</h3>
-            {badges.length ? (
-              <div className="profile-badges">
-                {badges.map((badge) => (
-                  <div key={badge.nome} className="profile-badge">
-                    <strong>{badge.nome}</strong>
-                    <span className="muted">{badge.descricao}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="muted">Nenhuma conquista registrada.</p>
-            )}
-          </div>
-
-          <div className="card">
-            <span className="card-eyebrow">Forum</span>
-            <h3 className="card-title">Postagens recentes</h3>
-            {forumPosts.length ? (
-              <div className="profile-forum-list">
-                {forumPosts.map((post) => (
-                  <Link key={post.id} href={`/forum/topico/${post.id}`} className="profile-forum-item">
-                    <div>
-                      <strong>{post.title}</strong>
-                      <span className="muted">{post.category_title ?? "Comunidade"}</span>
-                    </div>
-                    <span className="muted">{formatDate(post.created_at)}</span>
-                  </Link>
-                ))}
-              </div>
-            ) : (
-              <p className="muted">Nenhum topico publicado ainda.</p>
-            )}
-          </div>
-
-          <div className="card">
-            <span className="card-eyebrow">Denuncias</span>
-            <h3 className="card-title">Aceitas pela equipe</h3>
-            {acceptedReports.length ? (
-              <div className="profile-report-list">
-                {acceptedReports.map((report) => (
-                  <div key={report.id} className="profile-report-item">
-                    <div>
-                      <strong>{report.current_nick ?? report.reportado_uuid}</strong>
-                      <span className="muted">{report.motivo}</span>
-                    </div>
-                    <span className="muted">{formatDate(report.reportadoEm)}</span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="muted">Nenhuma denuncia aceita ainda.</p>
-            )}
-          </div>
-
-          <div className="card">
-            <span className="card-eyebrow">Punicoes</span>
-            <h3 className="card-title">Jogadores punidos</h3>
-            {punishedPlayers.length ? (
-              <div className="profile-report-list">
-                {punishedPlayers.map((player) => (
-                  <div key={player.reportado_uuid} className="profile-report-item">
-                    <strong>{player.current_nick ?? player.reportado_uuid}</strong>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="muted">Nenhuma punicao registrada.</p>
-            )}
-          </div>
-        </div>
-
-        <div className="card profile-reputation">
-          <div className="profile-stats-head">
-            <div>
-              <span className="card-eyebrow">Reputacao</span>
-              <h3 className="card-title">Como a comunidade avalia</h3>
-              <p className="muted">Media de avaliacoes dos jogadores.</p>
-            </div>
-            <div className="profile-reputation-score">
-              <strong>{reputationAverage.toFixed(1)}</strong>
-              <span className="muted">({reputationCount} votos)</span>
-            </div>
-          </div>
-
-          {viewerUuid && !isOwner ? (
-            <form action={submitReputation} className="profile-reputation-form">
-              <input type="hidden" name="target_uuid" value={stats.uuid} />
-              <input type="hidden" name="nick" value={stats.current_nick ?? ""} />
-              <label className="muted">Sua avaliacao</label>
-              <div className="profile-reputation-actions">
-                <select name="rating" defaultValue={Number(viewerVote?.rating ?? 0) || 5}>
-                  <option value={5}>5 - Excelente</option>
-                  <option value={4}>4 - Muito bom</option>
-                  <option value={3}>3 - Bom</option>
-                  <option value={2}>2 - Regular</option>
-                  <option value={1}>1 - Ruim</option>
-                </select>
-                <button className="btn primary btn-sm" type="submit">
-                  Enviar voto
-                </button>
-              </div>
-              {viewerVote?.updated_at && (
-                <p className="muted">
-                  Ultima avaliacao: {formatDate(viewerVote.updated_at)}
-                </p>
+                </div>
               )}
-            </form>
-          ) : !viewerUuid ? (
-            <p className="muted">Entre com Discord para avaliar jogadores.</p>
-          ) : null}
-        </div>
-
-        <div className="card profile-stats">
-          <div className="profile-stats-head">
-            <div>
-              <span className="card-eyebrow">Estatisticas</span>
-              <h3 className="card-title">Resumo de desempenho</h3>
-              <p className="muted">Dados do servidor em tempo real.</p>
             </div>
-            {!showStats && <span className="status-pill">Privado</span>}
           </div>
-          {showStats ? (
-            <div className="profile-stats-grid">
-              <div>
-                <span className="muted">Mobs abatidos</span>
-                <strong>{formatStat(stats.mobs_killed)}</strong>
-              </div>
-              <div>
-                <span className="muted">PVP Kills</span>
-                <strong>{formatStat(stats.pvp_kills)}</strong>
-              </div>
-              <div>
-                <span className="muted">Blocos quebrados</span>
-                <strong>{formatStat(stats.blocks_broken)}</strong>
-              </div>
-              <div>
-                <span className="muted">Mortes</span>
-                <strong>{formatStat(stats.deaths)}</strong>
-              </div>
-            </div>
-          ) : (
-            <p className="muted">O jogador ocultou as estatisticas publicas.</p>
-          )}
         </div>
       </div>
     </section>

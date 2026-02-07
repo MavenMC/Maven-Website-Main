@@ -1,6 +1,6 @@
 ﻿import Image from "next/image";
 import Link from "next/link";
-import { MessageSquare, Users } from "lucide-react";
+import { Megaphone, MessageSquare, ShieldCheck, Sparkles, Users } from "lucide-react";
 import { getDiscordStats } from "@/lib/discord";
 import {
   getChangelogEntries,
@@ -10,7 +10,6 @@ import {
   getSocialLinks,
 } from "@/lib/site-data";
 import { formatShortDate } from "@/lib/date";
-import { getPostCoverProps } from "@/lib/post-cover";
 import { resolveIcon } from "@/lib/icon-map";
 
 export default async function Home() {
@@ -27,15 +26,15 @@ export default async function Home() {
     getDiscordStats(),
     getSiteStats(4),
     getSitePosts("news", 3),
-    getSitePosts("blog", 4),
-    getSitePosts("patch", 4),
+    getSitePosts("blog", 3),
+    getSitePosts("patch", 3),
     getChangelogEntries(3),
     getForumCategories(6),
     getSocialLinks(),
   ]);
 
   const membersOnline =
-  discord.membersOnline === null ? "-" : discord.membersOnline.toLocaleString("pt-BR");
+    discord.membersOnline === null ? "-" : discord.membersOnline.toLocaleString("pt-BR");
   const primarySocials = socialLinks.slice(0, 4);
 
   const parseItems = (itemsJson: string | null) => {
@@ -54,62 +53,103 @@ export default async function Home() {
 
   return (
     <>
-      <section id="inicio" className="hero">
-        <div className="hero-grid-bg grid-background" aria-hidden="true" />
-        <div className="hero-side-card card small">
-          <span className="card-eyebrow">IP do servidor</span>
-          <h3>mavenmc.com.br</h3>
-          <p className="card-sub">Bedrock: play.mavenmc.com.br</p>
-        </div>
+      <section id="inicio" className="home-hero">
+        <div className="home-hero-bg" aria-hidden="true" />
+        <div className="container home-hero-grid">
+          <div className="home-hero-copy">
+            <span className="home-hero-pill">Maven Network • Java + Bedrock</span>
+            <h1>
+              O survival que vira história.
+              <span className="home-hero-accent"> Viva o servidor.</span>
+            </h1>
+            <p>
+              Progressão RPG, economia viva e eventos que mudam a temporada. Entre, jogue e deixe sua
+              marca na comunidade.
+            </p>
 
-        <div className="container hero-grid">
-          <div className="hero-copy">
-            <div className="hero-copy-content">
-              <span className="pill">Java + Bedrock</span>
-              <h1>
-                Bem-vindo ao <span className="gradient-text">MavenMC</span>
-              </h1>
-              <p>
-                Um servidor survival com RPG, economia ativa e eventos constantes. Tudo conectado ao
-                nosso ecossistema para você acompanhar notícias, patch notes e a vida da comunidade.
-              </p>
+            <div className="home-hero-actions">
+              <Link href="/perfil#vinculo" className="btn primary">
+                Jogar agora
+              </Link>
+              <Link href="/forum" className="btn secondary">
+                Entrar na comunidade
+              </Link>
+            </div>
 
-              <div className="hero-actions">
-                <Link href="/perfil#vinculo" className="btn primary">
-                  Jogar agora
-                </Link>
-                <a href="/noticias" className="btn secondary">
-                  Ver notícias
-                </a>
-              </div>
-
-              <div className="hero-features">
+            <div className="home-hero-highlights">
+              <div className="home-highlight">
+                <span className="home-highlight-icon">
+                  <Sparkles size={18} />
+                </span>
                 <div>
-                  <div className="feature-title">Atualizações semanais</div>
-                  <div className="feature-text">Patch notes e changelogs sempre atualizados.</div>
+                  <div className="home-highlight-title">Progressão RPG</div>
+                  <div className="home-highlight-text">Classes, perks e jornadas únicas.</div>
                 </div>
+              </div>
+              <div className="home-highlight">
+                <span className="home-highlight-icon">
+                  <Megaphone size={18} />
+                </span>
                 <div>
-                  <div className="feature-title">Comunidade ativa</div>
-                  <div className="feature-text">Fórum, eventos e suporte todos os dias.</div>
+                  <div className="home-highlight-title">Eventos ao vivo</div>
+                  <div className="home-highlight-text">Sazonais, semanais e torneios.</div>
+                </div>
+              </div>
+              <div className="home-highlight">
+                <span className="home-highlight-icon">
+                  <ShieldCheck size={18} />
+                </span>
+                <div>
+                  <div className="home-highlight-title">Staff presente</div>
+                  <div className="home-highlight-text">Suporte ativo todos os dias.</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="hero-visual">
-            <div className="hero-logo-container">
-              <Image src="/logo.png" alt="Logo do MavenMC" fill className="hero-logo" priority />
+          <div className="home-hero-panel">
+            <div className="home-hero-logo">
+              <Image
+                src="/logo.png"
+                alt="Logo do MavenMC"
+                fill
+                sizes="(max-width: 640px) 80vw, (max-width: 1024px) 60vw, 320px"
+                className="home-hero-logo-img"
+                priority
+              />
+            </div>
+            <div className="home-hero-cards">
+              <div className="home-hero-card">
+                <span className="card-eyebrow">IP do servidor</span>
+                <strong>mavenmc.com.br</strong>
+                <span className="card-sub">Bedrock: play.mavenmc.com.br</span>
+              </div>
+              <div className="home-hero-card">
+                <span className="card-eyebrow">Online agora</span>
+                <strong>{membersOnline} jogadores</strong>
+                <span className="card-sub">Comunidade ativa neste momento</span>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="section stats-section">
+      <section className="section home-stats">
         <div className="container">
-          <div className="stats-grid">
+          <div className="home-stats-header">
+            <div>
+              <span className="section-kicker">Essência do servidor</span>
+              <h2>Números que provam a jornada</h2>
+              <p className="muted">Cada temporada deixa uma história nova para contar.</p>
+            </div>
+            <Link href="/changelog" className="btn ghost btn-sm">
+              Ver tudo
+            </Link>
+          </div>
+          <div className="home-stats-grid">
             {stats.length ? (
               stats.map((stat) => (
-                <div key={stat.id} className="card">
+                <div key={stat.id} className="card home-stat-card">
                   <h3>{stat.value}</h3>
                   <p className="muted">{stat.label}</p>
                 </div>
@@ -124,30 +164,144 @@ export default async function Home() {
         </div>
       </section>
 
-      <section className="section">
+      <section className="section home-updates">
         <div className="container">
           <div className="section-header">
             <div>
-              <span className="section-kicker">Comunidade</span>
-              <h2>Fique conectado</h2>
-              <p className="muted">
-                Acompanhe conteúdos, avisos e eventos em nossas redes oficiais.
-              </p>
+              <span className="section-kicker">Atualizações</span>
+              <h2>O que está acontecendo agora</h2>
+              <p className="muted">Notícias, novidades e patches em um só lugar.</p>
             </div>
-            <a href="https://discord.gg/mvn" className="btn secondary" target="_blank" rel="noreferrer">
-              Entrar no Discord
-            </a>
+            <Link href="/noticias" className="btn secondary">
+              Ver central de notícias
+            </Link>
           </div>
 
-          <div className="feature-grid">
-            <div className="card social-card">
-              <span className="card-eyebrow">Redes oficiais</span>
-              <h3 className="card-title">Stay Connected</h3>
-              <p className="card-sub">
-                Siga o Maven Network para não perder anúncios, lives e novidades.
-              </p>
+          <div className="home-updates-grid">
+            <div className="card home-updates-card">
+              <div className="home-updates-head">
+                <div>
+                  <span className="card-eyebrow">Notícias</span>
+                  <h3 className="card-title">Últimos avisos</h3>
+                </div>
+                <Link href="/noticias" className="btn ghost btn-sm">
+                  Ver todas
+                </Link>
+              </div>
+              <div className="home-updates-list">
+                {newsItems.length ? (
+                  newsItems.map((news) => (
+                    <article key={news.id} className="home-update-item">
+                      <div>
+                        <span className="home-update-date">
+                          {formatShortDate(news.published_at) || "Sem data"}
+                        </span>
+                        <strong className="home-update-title">{news.title}</strong>
+                        <p className="home-update-text">
+                          {news.summary ?? "Atualização publicada pela equipe Maven."}
+                        </p>
+                      </div>
+                      <Link href="/noticias" className="btn ghost btn-sm">
+                        Abrir
+                      </Link>
+                    </article>
+                  ))
+                ) : (
+                  <p className="muted">Nenhum comunicado publicado ainda.</p>
+                )}
+              </div>
+            </div>
 
-              <div className="social-links">
+            <div className="card home-updates-card">
+              <div className="home-updates-head">
+                <div>
+                  <span className="card-eyebrow">Blog</span>
+                  <h3 className="card-title">Guias e histórias</h3>
+                </div>
+                <Link href="/blog" className="btn ghost btn-sm">
+                  Ver blog
+                </Link>
+              </div>
+              <div className="home-updates-list">
+                {blogPosts.length ? (
+                  blogPosts.map((post) => (
+                    <article key={post.id} className="home-update-item">
+                      <div>
+                        <span className="home-update-date">
+                          {formatShortDate(post.published_at) || "Sem data"}
+                        </span>
+                        <strong className="home-update-title">{post.title}</strong>
+                        <p className="home-update-text">
+                          {post.summary ?? "Conteúdo novo no blog."}
+                        </p>
+                      </div>
+                      <Link href={`/blog/${post.id}`} className="btn ghost btn-sm">
+                        Ler
+                      </Link>
+                    </article>
+                  ))
+                ) : (
+                  <p className="muted">Nenhum post publicado ainda.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="card home-updates-card">
+              <div className="home-updates-head">
+                <div>
+                  <span className="card-eyebrow">Patch Notes</span>
+                  <h3 className="card-title">Ajustes semanais</h3>
+                </div>
+                <Link href="/patch-notes" className="btn ghost btn-sm">
+                  Ver patches
+                </Link>
+              </div>
+              <div className="home-updates-list">
+                {patchNotes.length ? (
+                  patchNotes.map((note) => (
+                    <article key={note.id} className="home-update-item">
+                      <div>
+                        <span className="home-update-date">
+                          {formatShortDate(note.published_at) || "Sem data"}
+                        </span>
+                        <strong className="home-update-title">{note.title}</strong>
+                        <p className="home-update-text">
+                          {note.summary ?? "Atualização rápida do servidor."}
+                        </p>
+                      </div>
+                      <Link href="/patch-notes" className="btn ghost btn-sm">
+                        Ver
+                      </Link>
+                    </article>
+                  ))
+                ) : (
+                  <p className="muted">Nenhuma nota publicada ainda.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section home-community">
+        <div className="container">
+          <div className="home-community-grid">
+            <div className="home-community-copy">
+              <span className="section-kicker">Comunidade</span>
+              <h2>O rosto do servidor vive aqui</h2>
+              <p className="muted">
+                Participe das discussões, receba avisos em primeira mão e acompanhe as lives da equipe.
+              </p>
+              <div className="home-community-actions">
+                <a href="https://discord.gg/mvn" className="btn primary" target="_blank" rel="noreferrer">
+                  Entrar no Discord
+                </a>
+                <Link href="/noticias" className="btn ghost">
+                  Ver notícias
+                </Link>
+              </div>
+
+              <div className="home-community-links">
                 {primarySocials.length ? (
                   primarySocials.map((link) => {
                     const Icon = resolveIcon(link.icon, MessageSquare);
@@ -155,13 +309,14 @@ export default async function Home() {
                       <a
                         key={link.id}
                         href={link.url}
-                        className="social-button"
+                        className="home-community-link"
                         target="_blank"
                         rel="noreferrer"
                         aria-label={link.label}
                         title={link.label}
                       >
                         <Icon className="icon" />
+                        <span>{link.label}</span>
                       </a>
                     );
                   })
@@ -169,19 +324,17 @@ export default async function Home() {
                   <span className="muted">Configure as redes no painel.</span>
                 )}
               </div>
-
-              <p className="muted">Participe também dos sorteios mensais no Discord.</p>
             </div>
 
-            <div className="discord-widget">
+            <div className="discord-widget home-discord">
               <div className="discord-widget-top">
                 <div className="discord-widget-meta">
                   <div className="discord-widget-icon">
-                    <Users className="icon"/>
+                    <Users className="icon" />
                   </div>
                   <div>
                     <div className="discord-widget-count">{membersOnline}</div>
-                    <div className="discord-widget-label">Members Online</div>
+                    <div className="discord-widget-label">Membros online</div>
                   </div>
                 </div>
                 <img src="/discord.svg" alt="Discord" className="discord-widget-logo" />
@@ -192,240 +345,10 @@ export default async function Home() {
                 target="_blank"
                 rel="noreferrer"
               >
-                Join Our Discord
+                Entrar no Discord
                 <span className="discord-widget-arrow">›</span>
               </a>
             </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="noticias" className="section">
-        <div className="container">
-          <div className="section-header">
-            <div>
-              <span className="section-kicker">Notícias</span>
-              <h2>Últimas do servidor</h2>
-              <p className="muted">
-                Fique por dentro de eventos, atualizações e o que vem por aí.
-              </p>
-            </div>
-            <a href="/forum" className="btn secondary">
-              Participar da comunidade
-            </a>
-          </div>
-
-          <div className="category-compact-grid">
-            {newsItems.length ? (
-              newsItems.map((news) => (
-                <article key={news.id} className="card category-compact-card">
-                  <div className={`category-visual ${news.cover ?? ""}`}>
-                    <span>{news.tag || news.cover_label || "NEWS"}</span>
-                  </div>
-                  <div className="category-compact-content">
-                    <span className="card-eyebrow">
-                      {formatShortDate(news.published_at) || "Sem data"}
-                    </span>
-                    <h3>{news.title}</h3>
-                    <p>{news.summary ?? "Atualização publicada pela equipe Maven."}</p>
-                    <div className="category-action">
-                      <a href="/blog" className="btn ghost btn-sm">
-                        Ler detalhes
-                      </a>
-                    </div>
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="card">
-                <h3>Sem notícias</h3>
-                <p className="muted">Ainda não há comunicados publicados.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section id="blog" className="section">
-        <div className="container">
-          <div className="section-header">
-            <div>
-              <span className="section-kicker">Blog</span>
-              <h2>Guias, bastidores e histórias</h2>
-              <p className="muted">
-                Conteúdo feito pela equipe para você dominar o servidor.
-              </p>
-            </div>
-            <a href="/trabalhe-conosco" className="btn secondary">
-              Entrar para a equipe
-            </a>
-          </div>
-
-          <div className="blog-grid">
-            {blogPosts.length ? (
-              blogPosts.map((post) => (
-                <article key={post.id} className="card blog-card">
-                  <div className={getPostCoverProps(post.cover).className} style={getPostCoverProps(post.cover).style}>
-                    {post.cover_label || post.tag || "BLOG"}
-                  </div>
-                  <div>
-                    <span className="card-eyebrow">
-                      {formatShortDate(post.published_at) || "Sem data"}
-                    </span>
-                    <h3 className="card-title">{post.title}</h3>
-                    <p className="card-sub">{post.summary ?? "Conteúdo novo no blog."}</p>
-                  </div>
-                  <a href={`/blog/${post.id}`} className="btn ghost btn-sm">
-                    Ler artigo
-                  </a>
-                </article>
-              ))
-            ) : (
-              <div className="card">
-                <h3>Sem posts</h3>
-                <p className="muted">Cadastre posts do blog no painel.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section id="equipe" className="section">
-        <div className="container">
-          <div className="section-header">
-            <div>
-              <span className="section-kicker">Equipe</span>
-              <h2>Formulário de recrutamento</h2>
-              <p className="muted">
-                Quer ajudar a construir o servidor? Conte sobre você e suas habilidades.
-              </p>
-            </div>
-            <a href="/forum" className="btn secondary">
-              Tirar dúvidas no fórum
-            </a>
-          </div>
-
-          <div className="feature-grid">
-            <div className="card">
-              <h3 className="card-title">Trabalhe Conosco</h3>
-              <p className="card-sub">
-                O formul?rio agora fica em uma p?gina dedicada com valida??o de conta vinculada.
-              </p>
-              <Link href="/trabalhe-conosco" className="btn primary btn-sm">
-                Abrir formul?rio
-              </Link>
-              <p className="muted">? necess?rio ter a conta Minecraft vinculada.</p>
-            </div>
-
-            <div className="card">
-              <span className="card-eyebrow">Requisitos</span>
-              <h3 className="card-title">O que procuramos</h3>
-              <p className="card-sub">
-                Pessoas comprometidas, educadas e que curtam trabalhar em equipe.
-              </p>
-              <div>
-                <p className="card-sub">• Disponibilidade mínima de 6h semanais.</p>
-                <p className="card-sub">• Ter 14+ anos e maturidade.</p>
-                <p className="card-sub">• Conhecimento básico das regras.</p>
-                <p className="card-sub">• Boa comunicação no Discord.</p>
-              </div>
-
-              <div className="cta-strip">
-                <div>
-                  <strong>Precisa de ajuda?</strong>
-                  <p className="muted">Abra um tópico no fórum para conversar com o staff.</p>
-                </div>
-                <a href="/forum" className="btn secondary btn-sm">
-                  Fórum
-                </a>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section id="changelog" className="section">
-        <div className="container">
-          <div className="section-header">
-            <div>
-              <span className="section-kicker">Changelog</span>
-              <h2>Histórico de alterações</h2>
-              <p className="muted">
-                Tudo o que mudou no servidor, organizado por versão.
-              </p>
-            </div>
-            <a href="/patch-notes" className="btn secondary">
-              Ver patch notes
-            </a>
-          </div>
-
-          <div className="category-grid">
-            {changelogItems.length ? (
-              changelogItems.map((item) => (
-                <article key={item.id} className="card">
-                  <span className="card-eyebrow">
-                    {item.version} • {formatShortDate(item.published_at) || "Sem data"}
-                  </span>
-                  <h3 className="card-title">{item.title}</h3>
-                  <div>
-                    {parseItems(item.items_json).map((entry) => (
-                      <p key={entry} className="card-sub">
-                        • {entry}
-                      </p>
-                    ))}
-                  </div>
-                </article>
-              ))
-            ) : (
-              <div className="card">
-                <h3>Sem changelog</h3>
-                <p className="muted">Adicione entradas no painel administrativo.</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
-
-      <section id="patch-notes" className="section">
-        <div className="container">
-          <div className="section-header">
-            <div>
-              <span className="section-kicker">Patch Notes</span>
-              <h2>Notas de atualização</h2>
-              <p className="muted">
-                Pequenos ajustes e melhorias semanais em um formato rápido.
-              </p>
-            </div>
-            <a href="/forum" className="btn secondary">
-              Reportar bug
-            </a>
-          </div>
-
-          <div className="blog-grid">
-            {patchNotes.length ? (
-              patchNotes.map((note) => (
-                <article key={note.id} className="card blog-card">
-                  <div className={getPostCoverProps(note.cover).className} style={getPostCoverProps(note.cover).style}>
-                    {note.cover_label || note.tag || "PATCH"}
-                  </div>
-                  <div>
-                    <span className="card-eyebrow">
-                      {formatShortDate(note.published_at) || "Sem data"}
-                    </span>
-                    <h3 className="card-title">{note.title}</h3>
-                    <p className="card-sub">{note.summary ?? "Atualização rápida do servidor."}</p>
-                  </div>
-                  <a href="/forum" className="btn ghost btn-sm">
-                    Discutir no fórum
-                  </a>
-                </article>
-              ))
-            ) : (
-              <div className="card">
-                <h3>Sem patches</h3>
-                <p className="muted">Cadastre patch notes para aparecerem aqui.</p>
-              </div>
-            )}
           </div>
         </div>
       </section>
@@ -456,9 +379,9 @@ export default async function Home() {
                     </div>
                     <h3>{category.title}</h3>
                     <p>{category.description ?? "Acompanhe as discussões do servidor."}</p>
-                    <a href={`/forum/${category.id}`} className="btn ghost btn-sm">
+                    <Link href={`/forum/${category.id}`} className="btn ghost btn-sm">
                       Ver tópicos
-                    </a>
+                    </Link>
                   </article>
                 );
               })
@@ -475,13 +398,108 @@ export default async function Home() {
               <strong>Quer abrir um tópico?</strong>
               <p className="muted">Use o fórum para reportar bugs e trocar ideias.</p>
             </div>
-            <a href="/forum" className="btn primary btn-sm">
+            <Link href="/forum" className="btn primary btn-sm">
               Acessar fórum
-            </a>
+            </Link>
           </div>
         </div>
       </section>
 
+      <section id="changelog" className="section">
+        <div className="container">
+          <div className="section-header">
+            <div>
+              <span className="section-kicker">Changelog</span>
+              <h2>Histórico de alterações</h2>
+              <p className="muted">
+                Tudo o que mudou no servidor, organizado por versão.
+              </p>
+            </div>
+            <Link href="/patch-notes" className="btn secondary">
+              Ver patch notes
+            </Link>
+          </div>
+
+          <div className="category-grid">
+            {changelogItems.length ? (
+              changelogItems.map((item) => (
+                <article key={item.id} className="card">
+                  <span className="card-eyebrow">
+                    {item.version} • {formatShortDate(item.published_at) || "Sem data"}
+                  </span>
+                  <h3 className="card-title">{item.title}</h3>
+                  <div>
+                    {parseItems(item.items_json).map((entry) => (
+                      <p key={entry} className="card-sub">
+                        • {entry}
+                      </p>
+                    ))}
+                  </div>
+                </article>
+              ))
+            ) : (
+              <div className="card">
+                <h3>Sem changelog</h3>
+                <p className="muted">Adicione entradas no painel administrativo.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </section>
+
+      <section id="equipe" className="section">
+        <div className="container">
+          <div className="section-header">
+            <div>
+              <span className="section-kicker">Trabalhe Conosco</span>
+              <h2>Faça parte da equipe</h2>
+              <p className="muted">
+                Quer ajudar a construir o servidor? Mostre suas habilidades no formulário.
+              </p>
+            </div>
+            <Link href="/forum" className="btn secondary">
+              Tirar dúvidas no fórum
+            </Link>
+          </div>
+
+          <div className="feature-grid">
+            <div className="card">
+              <h3 className="card-title">Trabalhe Conosco</h3>
+              <p className="card-sub">
+                O formulário agora fica em uma página dedicada com validação de conta vinculada.
+              </p>
+              <Link href="/trabalhe-conosco" className="btn primary btn-sm">
+                Abrir formulário
+              </Link>
+              <p className="muted">É necessário ter a conta Minecraft vinculada.</p>
+            </div>
+
+            <div className="card">
+              <span className="card-eyebrow">Requisitos</span>
+              <h3 className="card-title">O que procuramos</h3>
+              <p className="card-sub">
+                Pessoas comprometidas, educadas e que curtam trabalhar em equipe.
+              </p>
+              <div>
+                <p className="card-sub">• Disponibilidade mínima de 6h semanais.</p>
+                <p className="card-sub">• Ter 14+ anos e maturidade.</p>
+                <p className="card-sub">• Conhecimento básico das regras.</p>
+                <p className="card-sub">• Boa comunicação no Discord.</p>
+              </div>
+
+              <div className="cta-strip">
+                <div>
+                  <strong>Precisa de ajuda?</strong>
+                  <p className="muted">Abra um tópico no fórum para conversar com o staff.</p>
+                </div>
+                <Link href="/forum" className="btn secondary btn-sm">
+                  Fórum
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
     </>
   );
 }

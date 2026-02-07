@@ -69,13 +69,64 @@ function sanitizeText(value: string, maxLength: number) {
   return value.trim().slice(0, maxLength);
 }
 
+function normalizeHandle(value: string) {
+  return value.replace(/^@+/, "").trim();
+}
+
+function isValidHandle(value: string) {
+  return /^[a-zA-Z0-9._-]{2,32}$/.test(value);
+}
+
+function buildSocialUrl(label: string, handle: string) {
+  const safeHandle = normalizeHandle(handle);
+  if (!isValidHandle(safeHandle)) return null;
+
+  switch (label.toLowerCase()) {
+    case "discord":
+      return /^\d{16,20}$/.test(safeHandle)
+        ? `https://discord.com/users/${safeHandle}`
+        : `https://discord.com/users/${encodeURIComponent(safeHandle)}`;
+    case "youtube":
+      return `https://www.youtube.com/@${encodeURIComponent(safeHandle)}`;
+    case "tiktok":
+      return `https://www.tiktok.com/@${encodeURIComponent(safeHandle)}`;
+    default:
+      return null;
+  }
+}
+
+function extractHandle(url: string) {
+  const match = url.match(/@([a-zA-Z0-9._-]+)/);
+  if (match?.[1]) return match[1];
+  const tail = url.split("/").pop();
+  return tail ? normalizeHandle(tail) : "";
+}
+
 async function removeLocalUpload(currentUrl: string | null) {
   if (!currentUrl || !currentUrl.startsWith("/uploads/")) return;
+  
   const filePath = path.join(process.cwd(), "public", currentUrl.replace(/^\//, ""));
+  
   try {
     await fs.unlink(filePath);
-  } catch {
-    // Ignore missing files.
+    console.log(`[Perfil] Arquivo deletado: ${currentUrl}`);
+    
+    // Tentar limpar o diretório se estiver vazio
+    const dirPath = path.dirname(filePath);
+    try {
+      const files = await fs.readdir(dirPath);
+      if (files.length === 0) {
+        await fs.rmdir(dirPath);
+        console.log(`[Perfil] Diretório vazio removido: ${dirPath}`);
+      }
+    } catch {
+      // Diretório não está vazio ou não pode ser removido, ignorar
+    }
+  } catch (error) {
+    // Arquivo não existe ou não pode ser deletado
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.error(`[Perfil] Erro ao deletar arquivo ${currentUrl}:`, error);
+    }
   }
 }
 
@@ -110,8 +161,6 @@ async function updatePublicProfile(formData: FormData) {
     redirect("/login");
   }
 
-  try {
-
   const rows = await dbQuery<PlayerRow[]>(
     "SELECT discord_id, discord_username, discord_avatar, email, minecraft_name, minecraft_uuid, account_type, verified, is_bedrock FROM player_accounts WHERE discord_id = :discord_id LIMIT 1",
     { discord_id: session.user.playerId },
@@ -123,13 +172,16 @@ async function updatePublicProfile(formData: FormData) {
   }
 
   const uuid = player.minecraft_uuid;
+
+  try {
+
   const apelido = sanitizeText(String(formData.get("apelido") || ""), 50) || null;
   const bio = sanitizeText(String(formData.get("bio") || ""), 500) || null;
   const privacidade = String(formData.get("privacidade") || "PUBLICA").toUpperCase();
   const estatisticasPublicas = formData.get("estatisticas_publicas") ? 1 : 0;
 
   await dbQuery(
-    "INSERT INTO perfil_jogadores (uuid, apelido, bio, estatisticas_publicas, privacidade, atualizadoEm) VALUES (:uuid, :apelido, :bio, :estatisticas_publicas, :privacidade, NOW()) ON DUPLICATE KEY UPDATE apelido = :apelido, bio = :bio, estatisticas_publicas = :estatisticas_publicas, privacidade = :privacidade, atualizadoEm = NOW()",
+    "INSERT INTO perfil_jogadores (uuid, apelido, bio, estatisticas_publicas, privacidade) VALUES (:uuid, :apelido, :bio, :estatisticas_publicas, :privacidade) ON DUPLICATE KEY UPDATE apelido = :apelido, bio = :bio, estatisticas_publicas = :estatisticas_publicas, privacidade = :privacidade",
     {
       uuid,
       apelido,
@@ -190,16 +242,20 @@ async function updatePublicProfile(formData: FormData) {
     },
   );
 
-  const totalSocials = Number(formData.get("social_count") || 0);
   const socials: Array<{ label: string; url: string; is_public: number; sort_order: number }> = [];
+  const definitions = [
+    { key: "discord", label: "Discord" },
+    { key: "youtube", label: "YouTube" },
+    { key: "tiktok", label: "TikTok" },
+  ];
 
-  for (let index = 0; index < totalSocials; index += 1) {
-    const label = sanitizeText(String(formData.get(`social_label_${index}`) || ""), 60);
-    const url = sanitizeText(String(formData.get(`social_url_${index}`) || ""), 255);
-    if (!label || !url) continue;
-    const isPublic = formData.get(`social_public_${index}`) ? 1 : 0;
-    socials.push({ label, url, is_public: isPublic, sort_order: index });
-  }
+  definitions.forEach((item, index) => {
+    const handleValue = String(formData.get(`social_handle_${item.key}`) || "");
+    const url = buildSocialUrl(item.label, handleValue);
+    if (!url) return;
+    const isPublic = formData.get(`social_public_${item.key}`) ? 1 : 0;
+    socials.push({ label: item.label, url, is_public: isPublic, sort_order: index });
+  });
 
   await dbQuery("DELETE FROM perfil_jogadores_redes WHERE uuid = :uuid", { uuid });
   for (const social of socials) {
@@ -209,18 +265,21 @@ async function updatePublicProfile(formData: FormData) {
     );
   }
 
-  const nickRows = await dbQuery<ProfileNickRow[]>(
-    "SELECT current_nick FROM account_stats WHERE uuid = :uuid LIMIT 1",
-    { uuid },
-  );
-  const publicNick = nickRows[0]?.current_nick ?? player.minecraft_name;
+  } catch (error) {
+    console.error("Erro ao atualizar perfil:", error);
+    throw error;
+  } finally {
+    // Sempre revalidar as páginas mesmo se houver erro parcial
+    const nickRows = await dbQuery<ProfileNickRow[]>(
+      "SELECT current_nick FROM account_stats WHERE uuid = :uuid LIMIT 1",
+      { uuid },
+    ).catch(() => []);
+    const publicNick = nickRows[0]?.current_nick ?? player.minecraft_name;
 
-  revalidatePath("/perfil");
+    revalidatePath("/perfil");
     if (publicNick) {
       revalidatePath(`/perfil/${publicNick}`);
     }
-  } catch (error) {
-    console.error("Erro ao atualizar perfil:", error);
   }
 }
 
@@ -290,10 +349,18 @@ export default async function PerfilPage() {
       )
     : [];
 
-  const socialList = [...socialRows];
-  while (socialList.length < 4) {
-    socialList.push({ id: 0, label: "", url: "", is_public: 1 });
-  }
+  const socialHandles = {
+    discord: "",
+    youtube: "",
+    tiktok: "",
+  };
+
+  socialRows.forEach((social) => {
+    const label = social.label.toLowerCase();
+    if (label.includes("discord")) socialHandles.discord = extractHandle(social.url);
+    if (label.includes("youtube")) socialHandles.youtube = extractHandle(social.url);
+    if (label.includes("tiktok")) socialHandles.tiktok = extractHandle(social.url);
+  });
 
   return (
     <section className="section">
@@ -304,13 +371,17 @@ export default async function PerfilPage() {
             <h2>Resumo da sua conta</h2>
             <p className="muted">Veja suas informações e status no Maven Network.</p>
           </div>
-          <a href="#vinculo" className="btn secondary">
-            Gerenciar vínculo
-          </a>
+          {player.minecraft_name && (
+            <a href={`/perfil/${player.minecraft_name}`} className="btn secondary">
+              Ver perfil publico
+            </a>
+          )}
         </div>
 
-        <div className="feature-grid">
-          <div className="card">
+        <div className="account-profile-layout">
+          <div className="account-profile-left">
+            <div className="account-grid">
+              <div className="card account-card">
             <span className="card-eyebrow">Discord</span>
             <div className="profile-card-head">
               {minecraftAvatar ? (
@@ -332,7 +403,7 @@ export default async function PerfilPage() {
             </div>
           </div>
 
-          <div className="card">
+              <div className="card account-card">
             <span className="card-eyebrow">Minecraft</span>
             <h3 className="card-title">
               {player.minecraft_name ?? "Conta não vinculada"}
@@ -347,55 +418,88 @@ export default async function PerfilPage() {
               Status: {player.verified ? "Verificado" : "Não verificado"}
             </p>
           </div>
-
-          <div className="card">
-            <span className="card-eyebrow">Ações</span>
-            <h3 className="card-title">Gerenciar conta</h3>
-            <p className="card-sub">
-              Atualize seu nick, escolha plataforma e vincule/desvincule sua conta.
-            </p>
-            <a href="#vinculo" className="btn primary btn-sm">
-              Ir para vínculo
-            </a>
-          </div>
-        </div>
-
-        <div id="vinculo" className="profile-link-section">
-          <ProfileLinker />
-        </div>
-
-        {player.minecraft_uuid ? (
-          <div className="card profile-public-card">
-            <div className="section-header">
-              <div>
-                <span className="section-kicker">Perfil publico</span>
-                <h2>Personalize seu perfil</h2>
-                <p className="muted">Controle sua bio, assets e redes visiveis para o publico.</p>
-              </div>
-              {player.minecraft_name && (
-                <a href={`/perfil/${player.minecraft_name}`} className="btn secondary">
-                  Ver perfil
-                </a>
-              )}
             </div>
 
-            <ProfilePublicForm
-              action={updatePublicProfile}
-              profile={profile}
-              assets={assets}
-              socialList={socialList}
-            />
+            <div className="card account-card">
+              <span className="card-eyebrow">Vinculo</span>
+              <h3 className="card-title">Conectar Minecraft</h3>
+              <p className="card-sub">
+                Vincule sua conta para liberar o perfil publico e recursos do site.
+              </p>
+              <div className="profile-link-section">
+                <ProfileLinker />
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="card profile-public-card">
-            <span className="card-eyebrow">Perfil publico</span>
-            <h3 className="card-title">Vincule sua conta</h3>
-            <p className="muted">Para liberar o perfil publico, conecte seu Minecraft.</p>
-            <a href="#vinculo" className="btn secondary btn-sm">
-              Vincular conta
-            </a>
+
+          <div className="account-profile-right">
+            <div className="card profile-preview-card">
+              <div className="profile-preview-banner">
+                {assets?.banner_url ? (
+                  <img src={assets.banner_url} alt="Banner" />
+                ) : (
+                  <div className="profile-preview-banner-fallback" />
+                )}
+                <div className="profile-preview-avatar">
+                  {assets?.avatar_url ? (
+                    <img src={assets.avatar_url} alt="Avatar" />
+                  ) : minecraftAvatar ? (
+                    <img src={minecraftAvatar} alt="Avatar" />
+                  ) : (
+                    <div className="profile-preview-avatar-fallback">
+                      <User size={24} aria-hidden="true" />
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="profile-preview-content">
+                <span className="card-eyebrow">Preview</span>
+                <h3 className="card-title">
+                  {profile?.apelido || player.minecraft_name || player.discord_username || "Jogador"}
+                </h3>
+                <p className="card-sub">@{player.minecraft_name ?? "-"}</p>
+                <p className="muted">
+                  Veja como o seu perfil aparece para outras pessoas.
+                </p>
+                {player.minecraft_name && (
+                  <a href={`/perfil/${player.minecraft_name}`} className="btn secondary btn-sm">
+                    Abrir perfil publico
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {player.minecraft_uuid ? (
+              <div className="card profile-public-card">
+                <div className="section-header">
+                  <div>
+                    <span className="section-kicker">Perfil publico</span>
+                    <h2>Personalize seu perfil</h2>
+                    <p className="muted">Controle sua bio, assets e redes visiveis para o publico.</p>
+                  </div>
+                  {player.minecraft_name && (
+                    <a href={`/perfil/${player.minecraft_name}`} className="btn secondary">
+                      Ver perfil
+                    </a>
+                  )}
+                </div>
+
+                <ProfilePublicForm
+                  action={updatePublicProfile}
+                  profile={profile}
+                  assets={assets}
+                  socialHandles={socialHandles}
+                />
+              </div>
+            ) : (
+              <div className="card profile-public-card">
+                <span className="card-eyebrow">Perfil publico</span>
+                <h3 className="card-title">Vincule sua conta</h3>
+                <p className="muted">Para liberar o perfil publico, conecte seu Minecraft.</p>
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </div>
     </section>
   );

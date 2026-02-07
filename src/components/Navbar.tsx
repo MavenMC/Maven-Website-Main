@@ -50,9 +50,9 @@ export default function Navbar() {
                     <path d="M1 1L6 6L11 1" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
                 </button>
-                <div className="nav-dropdown-menu">
+                <div className="nav-dropdown-menu nav-dropdown-card">
                   {link.dropdown.map((item) => (
-                    <Link key={item.href} href={item.href}>
+                    <Link key={item.href} href={item.href} className="nav-dropdown-item">
                       {item.label}
                     </Link>
                   ))}

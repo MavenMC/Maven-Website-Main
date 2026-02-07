@@ -15,18 +15,15 @@ type ProfileFormAssets = {
   ring_url: string | null;
 };
 
-type ProfileFormSocial = {
-  id: number;
-  label: string;
-  url: string;
-  is_public: number;
-};
-
 type ProfilePublicFormProps = {
   action: (formData: FormData) => void | Promise<void>;
   profile: ProfileFormProfile | null;
   assets: ProfileFormAssets | null;
-  socialList: ProfileFormSocial[];
+  socialHandles: {
+    discord: string;
+    youtube: string;
+    tiktok: string;
+  };
 };
 
 const MAX_BYTES = 5 * 1024 * 1024;
@@ -35,7 +32,7 @@ export default function ProfilePublicForm({
   action,
   profile,
   assets,
-  socialList,
+  socialHandles,
 }: ProfilePublicFormProps) {
   const [error, setError] = useState("");
 
@@ -99,85 +96,106 @@ export default function ProfilePublicForm({
         </label>
       </div>
 
-      <div className="profile-upload-grid">
-        <div className="profile-upload">
-          <span>Banner</span>
-          {assets?.banner_url && (
-            <div className="profile-upload-preview">
-              <img src={assets.banner_url} alt="Banner atual" />
-              <label className="profile-remove">
-                <input type="checkbox" name="remove_banner" /> Remover
-              </label>
-            </div>
-          )}
-          <input type="file" name="banner" accept="image/*" />
-        </div>
+      <div className="profile-form-section">
+        <div className="profile-form-title">Midia</div>
+        <div className="profile-upload-grid">
+          <div className="profile-upload">
+            <span>Banner</span>
+            {assets?.banner_url && (
+              <div className="profile-upload-preview">
+                <img src={assets.banner_url} alt="Banner atual" />
+                <label className="profile-remove">
+                  <input type="checkbox" name="remove_banner" /> Remover
+                </label>
+              </div>
+            )}
+            <input type="file" name="banner" accept="image/*" className="profile-file-input" />
+          </div>
 
-        <div className="profile-upload">
-          <span>Avatar animado</span>
-          {assets?.avatar_url && (
-            <div className="profile-upload-preview">
-              <img src={assets.avatar_url} alt="Avatar atual" />
-              <label className="profile-remove">
-                <input type="checkbox" name="remove_avatar" /> Remover
-              </label>
-            </div>
-          )}
-          <input type="file" name="avatar" accept="image/*" />
-        </div>
+          <div className="profile-upload">
+            <span>Avatar animado</span>
+            {assets?.avatar_url && (
+              <div className="profile-upload-preview">
+                <img src={assets.avatar_url} alt="Avatar atual" />
+                <label className="profile-remove">
+                  <input type="checkbox" name="remove_avatar" /> Remover
+                </label>
+              </div>
+            )}
+            <input type="file" name="avatar" accept="image/*" className="profile-file-input" />
+          </div>
 
-        <div className="profile-upload">
-          <span>Moldura</span>
-          {assets?.ring_url && (
-            <div className="profile-upload-preview">
-              <img src={assets.ring_url} alt="Moldura atual" />
-              <label className="profile-remove">
-                <input type="checkbox" name="remove_ring" /> Remover
-              </label>
-            </div>
-          )}
-          <input type="file" name="ring" accept="image/*" />
-        </div>
-      </div>
-
-      <p className="muted">Limite total de upload: 5MB.</p>
-      {error ? <p className="form-error">{error}</p> : null}
-
-      <div className="profile-socials-editor">
-        <div className="profile-socials-header">
-          <div>
-            <span className="card-eyebrow">Redes</span>
-            <h3 className="card-title">Links publicos</h3>
-            <p className="muted">Escolha quais links ficam visiveis.</p>
+          <div className="profile-upload">
+            <span>Moldura</span>
+            {assets?.ring_url && (
+              <div className="profile-upload-preview">
+                <img src={assets.ring_url} alt="Moldura atual" />
+                <label className="profile-remove">
+                  <input type="checkbox" name="remove_ring" /> Remover
+                </label>
+              </div>
+            )}
+            <input type="file" name="ring" accept="image/*" className="profile-file-input" />
           </div>
         </div>
+        <p className="muted">Limite total de upload: 5MB.</p>
+      </div>
+      {error ? <p className="form-error">{error}</p> : null}
 
-        <input type="hidden" name="social_count" value={socialList.length} />
-        <div className="profile-socials-grid">
-          {socialList.map((social, index) => (
-            <div key={`${social.id}-${index}`} className="profile-social-row">
+      <div className="profile-form-section">
+        <div className="profile-form-title">Redes sociais</div>
+        <div className="profile-socials-editor">
+          <div className="profile-socials-header">
+            <div>
+              <span className="card-eyebrow">Redes</span>
+              <h3 className="card-title">Links publicos</h3>
+              <p className="muted">Informe apenas o @ das redes disponiveis.</p>
+            </div>
+          </div>
+
+          <div className="profile-socials-grid">
+            <div className="profile-social-row">
+              <input type="hidden" name="social_label_discord" value="Discord" />
               <input
                 type="text"
-                name={`social_label_${index}`}
-                placeholder="Rede (ex: Twitter)"
-                defaultValue={social.label}
-              />
-              <input
-                type="url"
-                name={`social_url_${index}`}
-                placeholder="https://"
-                defaultValue={social.url}
+                name="social_handle_discord"
+                placeholder="@seuDiscord"
+                defaultValue={socialHandles.discord}
               />
               <label className="profile-social-public">
-                <input
-                  type="checkbox"
-                  name={`social_public_${index}`}
-                  defaultChecked={social.is_public !== 0}
-                />
+                <input type="checkbox" name="social_public_discord" defaultChecked />
                 Publico
               </label>
             </div>
-          ))}
+
+            <div className="profile-social-row">
+              <input type="hidden" name="social_label_youtube" value="YouTube" />
+              <input
+                type="text"
+                name="social_handle_youtube"
+                placeholder="@seuYoutube"
+                defaultValue={socialHandles.youtube}
+              />
+              <label className="profile-social-public">
+                <input type="checkbox" name="social_public_youtube" defaultChecked />
+                Publico
+              </label>
+            </div>
+
+            <div className="profile-social-row">
+              <input type="hidden" name="social_label_tiktok" value="TikTok" />
+              <input
+                type="text"
+                name="social_handle_tiktok"
+                placeholder="@seuTiktok"
+                defaultValue={socialHandles.tiktok}
+              />
+              <label className="profile-social-public">
+                <input type="checkbox" name="social_public_tiktok" defaultChecked />
+                Publico
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 

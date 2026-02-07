@@ -163,6 +163,27 @@ CREATE TABLE IF NOT EXISTS site_staff_changes (
   INDEX idx_site_staff_changes_date (happened_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS site_staff_profiles (
+  member_id INT NOT NULL,
+  bio TEXT NULL,
+  pronouns VARCHAR(40) NULL,
+  main_gamemode VARCHAR(60) NULL,
+  country VARCHAR(80) NULL,
+  timezone VARCHAR(80) NULL,
+  birthday DATE NULL,
+  staff_since DATE NULL,
+  first_joined DATE NULL,
+  discord_handle VARCHAR(60) NULL,
+  youtube_handle VARCHAR(60) NULL,
+  tiktok_handle VARCHAR(60) NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (member_id),
+  CONSTRAINT fk_site_staff_profiles_member
+    FOREIGN KEY (member_id) REFERENCES site_staff_members (id)
+    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS perfil_jogadores_assets (
   uuid VARCHAR(36) NOT NULL,
   banner_url VARCHAR(500) NULL,
@@ -206,3 +227,25 @@ CREATE TABLE IF NOT EXISTS perfil_jogadores_reputacoes (
     FOREIGN KEY (target_uuid) REFERENCES perfil_jogadores (uuid)
     ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Molduras de perfil personalizadas (512x512px PNG)
+CREATE TABLE IF NOT EXISTS site_profile_frames (
+  id INT NOT NULL AUTO_INCREMENT,
+  name VARCHAR(120) NOT NULL,
+  description TEXT NULL,
+  image_url VARCHAR(255) NOT NULL,
+  preview_url VARCHAR(255) NULL,
+  rarity VARCHAR(20) NULL DEFAULT 'common',
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  sort_order INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  INDEX idx_site_profile_frames_active (active),
+  INDEX idx_site_profile_frames_rarity (rarity)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Relacionamento jogador -> moldura escolhida
+ALTER TABLE perfil_jogadores
+  ADD COLUMN frame_id INT NULL AFTER banner,
+  ADD INDEX idx_perfil_jogadores_frame (frame_id);

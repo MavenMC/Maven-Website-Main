@@ -21,6 +21,9 @@ export default async function AdminDashboard() {
   const [stats] = await dbQuery<CountRow[]>(
     "SELECT COUNT(*) as total FROM site_stats",
   );
+  const [frames] = await dbQuery<CountRow[]>(
+    "SELECT COUNT(*) as total FROM site_profile_frames WHERE active = 1",
+  ).catch(() => [{ total: 0 }]);
 
   return (
     <div className="admin-page">
@@ -57,6 +60,11 @@ export default async function AdminDashboard() {
           <span className="card-eyebrow">Estatísticas</span>
           <h2 className="admin-metric">{stats?.total ?? 0}</h2>
           <p className="muted">Cards da home.</p>
+        </div>
+        <div className="card admin-card">
+          <span className="card-eyebrow">Molduras</span>
+          <h2 className="admin-metric">{frames?.total ?? 0}</h2>
+          <p className="muted">Molduras ativas.</p>
         </div>
       </section>
     </div>

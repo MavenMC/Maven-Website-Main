@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Users } from "lucide-react";
 import { dbQuery } from "@/lib/db";
 import { resolveIcon } from "@/lib/icon-map";
@@ -55,101 +56,132 @@ async function getStaffData() {
 export default async function EquipePage() {
   const staffRoles = await getStaffData();
 
+  // Separar cargos de liderança (CEO, Admin) dos demais
+  const leadershipRoles = staffRoles.filter(role => 
+    role.slug === 'ceo' || role.slug === 'admin'
+  );
+  const otherRoles = staffRoles.filter(role => 
+    role.slug !== 'ceo' && role.slug !== 'admin'
+  );
+
   return (
-    <section className="section">
+    <section className="section team-section">
       <div className="container">
-        <div className="team-hero">
-          <div className="team-hero-badge" aria-hidden="true">
-            <Users className="team-hero-icon" />
+        {/* Header */}
+        <div className="team-header">
+          <div className="team-header-badge">
+            <Users size={32} strokeWidth={2.5} />
           </div>
-          <div>
-            <h1 className="team-hero-title">
-              Nossa <span className="text-brand-sky">Equipe</span>
+          <div className="team-header-content">
+            <h1 className="team-header-title">
+              Nossa <span className="gradient-text">Equipe</span>
             </h1>
-            <p className="muted">Conheca nosso time de staff</p>
+            <p className="team-header-subtitle">
+              Conheça os profissionais que tornam tudo possível
+            </p>
           </div>
         </div>
 
-        <div className="staff-role-grid">
-          {staffRoles.map((role) => (
-            <div
-              key={role.id}
-              className="card staff-role-card"
-              style={{ "--role-color": role.color } as React.CSSProperties}
-            >
-              <div className="staff-role-header">
-                {(() => {
+        {/* Leadership Section - Hero Cards */}
+        {leadershipRoles.length > 0 && (
+          <div className="leadership-section">
+            <div className="leadership-grid">
+              {leadershipRoles.map((role) => (
+                role.members.map((member) => {
                   const Icon = resolveIcon(role.icon || role.slug, Users);
-                  return (
-                    <Icon
-                      aria-hidden="true"
-                      className="staff-role-icon"
-                    />
-                  );
-                })()}
-                <div className="staff-role-heading">
-                  <h2 className="staff-role-title">
-                    {role.name}
-                  </h2>
-                  <p className="staff-role-count">
-                    {role.members.length} {role.members.length === 1 ? "membro" : "membros"}
-                  </p>
-                </div>
-              </div>
-
-              <div className="staff-member-grid">
-                {role.members.map((member) => {
-                  const responsibilityText = member.responsibility?.trim() || role.name;
                   const minecraftAvatar = member.minecraft_uuid
                     ? getMinecraftHead3d(member.minecraft_uuid)
                     : getMinecraftAvatar(member.minecraft);
-                  const displayName = member.minecraft;
+                  const responsibilityText = member.responsibility?.trim() || role.name;
+                  
                   return (
-                    <div
+                    <Link
                       key={member.id}
-                      className="staff-member-card"
+                      href={`/equipe/${encodeURIComponent(member.minecraft)}`}
+                      className="hero-card"
                       style={{ "--role-color": role.color } as React.CSSProperties}
                     >
-                      <div className="staff-member-header">
+                      <div className="hero-card-glow"></div>
+                      <div className="hero-card-content">
+                        <div className="hero-card-avatar-wrapper">
+                          <img
+                            src={minecraftAvatar}
+                            alt={member.minecraft}
+                            className="hero-card-avatar"
+                            loading="eager"
+                          />
+                        </div>
+                        <div className="hero-card-info">
+                          <div className="hero-card-badge">
+                            <Icon size={14} strokeWidth={2.5} />
+                            <span>{role.name}</span>
+                          </div>
+                          <h3 className="hero-card-name">{member.minecraft}</h3>
+                          <p className="hero-card-role">{responsibilityText}</p>
+                        </div>
+                      </div>
+                    </Link>
+                  );
+                })
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Other Staff Sections */}
+        {otherRoles.map((role) => {
+          if (role.members.length === 0) return null;
+          
+          const Icon = resolveIcon(role.icon || role.slug, Users);
+          
+          return (
+            <div key={role.id} className="staff-section">
+              <div className="staff-section-header">
+                <div className="staff-section-icon" style={{ "--role-color": role.color } as React.CSSProperties}>
+                  <Icon size={20} strokeWidth={2.5} />
+                </div>
+                <h2 className="staff-section-title">{role.name}</h2>
+                <span className="staff-section-count">
+                  {role.members.length} {role.members.length === 1 ? "membro" : "membros"}
+                </span>
+              </div>
+
+              <div className="staff-grid">
+                {role.members.map((member) => {
+                  const minecraftAvatar = member.minecraft_uuid
+                    ? getMinecraftHead3d(member.minecraft_uuid)
+                    : getMinecraftAvatar(member.minecraft);
+                  const responsibilityText = member.responsibility?.trim() || role.name;
+                  
+                  return (
+                    <Link
+                      key={member.id}
+                      href={`/equipe/${encodeURIComponent(member.minecraft)}`}
+                      className="staff-card"
+                      style={{ "--role-color": role.color } as React.CSSProperties}
+                    >
+                      <div className="staff-card-header">
                         <img
                           src={minecraftAvatar}
-                          alt={displayName}
-                          width={56}
-                          height={56}
-                          className="staff-member-avatar"
+                          alt={member.minecraft}
+                          className="staff-card-avatar"
                           loading="lazy"
-                          decoding="async"
                         />
-                        <div className="staff-member-text">
-                          <div className="staff-member-name">{displayName}</div>
+                        <div className="staff-card-badge">
+                          <Icon size={12} strokeWidth={2.5} />
                         </div>
                       </div>
-
-                      <div className="staff-member-body">
-                        <div className="staff-member-role">
-                          {(() => {
-                            const Icon = resolveIcon(role.icon || role.slug, Users);
-                            return <Icon aria-hidden="true" className="staff-role-icon" />;
-                          })()}
-                          <span>{role.name}</span>
-                        </div>
-
-                        <div className="staff-member-footer">
-                          <span
-                            className="staff-member-responsibility"
-                            title={responsibilityText}
-                          >
-                            {responsibilityText}
-                          </span>
-                        </div>
+                      <div className="staff-card-body">
+                        <h3 className="staff-card-name">{member.minecraft}</h3>
+                        <p className="staff-card-responsibility">{responsibilityText}</p>
                       </div>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>
             </div>
-          ))}
-        </div>
+          );
+        })}
       </div>
     </section>
   );
