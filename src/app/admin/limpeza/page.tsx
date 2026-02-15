@@ -23,23 +23,17 @@ type CleanupResult = {
  * Rotina de limpeza de arquivos órfãos
  * Remove arquivos de upload que não estão mais referenciados no banco de dados
  */
-async function cleanOrphanUploads(): Promise<CleanupResult> {
+async function cleanOrphanUploads(formData: FormData): Promise<void> {
   "use server";
   await requireAdmin();
 
   const uploadsDir = path.join(process.cwd(), "public", "uploads", "profiles");
-  
+
   // Verificar se o diretório existe
   try {
     await fs.access(uploadsDir);
   } catch {
-    return {
-      success: false,
-      deletedCount: 0,
-      deletedSizeMB: "0.00",
-      errors: [],
-      message: "Diretório de uploads não existe ainda. Nenhuma limpeza necessária.",
-    };
+    // Diretório não existe, nada a fazer
   }
 
   const allAssets = await dbQuery<AssetRow[]>(
@@ -63,14 +57,14 @@ async function cleanOrphanUploads(): Promise<CleanupResult> {
 
     for (const uuidDir of uuidDirs) {
       const dirPath = path.join(uploadsDir, uuidDir);
-      
+
       let stat;
       try {
         stat = await fs.stat(dirPath);
       } catch {
         continue;
       }
-      
+
       if (!stat.isDirectory()) continue;
 
       const files = await fs.readdir(dirPath);
@@ -109,16 +103,6 @@ async function cleanOrphanUploads(): Promise<CleanupResult> {
   }
 
   revalidatePath("/admin/limpeza");
-
-  return {
-    success: true,
-    deletedCount,
-    deletedSizeMB: (deletedSize / 1024 / 1024).toFixed(2),
-    errors,
-    message: deletedCount > 0 
-      ? `Limpeza concluída! ${deletedCount} arquivo(s) removido(s).`
-      : "Nenhum arquivo órfão encontrado. Sistema está limpo!",
-  };
 }
 
 export default async function CleanupPage() {
@@ -138,8 +122,8 @@ export default async function CleanupPage() {
       <section className="card admin-card">
         <h2 className="card-title">Limpar arquivos órfãos</h2>
         <p className="muted" style={{ marginBottom: "1rem" }}>
-          Arquivos órfãos são imagens de perfil (banners, avatares, molduras) que foram
-          deletados do banco de dados mas ainda ocupam espaço no disco.
+          Arquivos órfãos são imagens de perfil (banners, avatares, molduras) que foram deletados do banco de dados mas
+          ainda ocupam espaço no disco.
         </p>
 
         <form action={cleanOrphanUploads}>
@@ -153,8 +137,7 @@ export default async function CleanupPage() {
         <h3 className="card-title">Como funciona?</h3>
         <ul style={{ paddingLeft: "1.5rem", color: "rgb(var(--muted))", lineHeight: "1.8" }}>
           <li>
-            <strong>Varredura:</strong> Lista todos os arquivos em{" "}
-            <code>/public/uploads/profiles/</code>
+            <strong>Varredura:</strong> Lista todos os arquivos em <code>/public/uploads/profiles/</code>
           </li>
           <li>
             <strong>Verificação:</strong> Compara com as referências no banco de dados
@@ -177,8 +160,8 @@ export default async function CleanupPage() {
           }}
         >
           <p style={{ margin: 0, fontSize: "0.875rem" }}>
-            <strong>💡 Dica:</strong> Execute esta limpeza periodicamente (ex: mensalmente)
-            para manter o servidor organizado e economizar espaço em disco.
+            <strong>💡 Dica:</strong> Execute esta limpeza periodicamente (ex: mensalmente) para manter o servidor
+            organizado e economizar espaço em disco.
           </p>
         </div>
       </section>

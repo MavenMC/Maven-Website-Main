@@ -2,6 +2,8 @@ import { revalidatePath } from "next/cache";
 import { dbQuery } from "@/lib/db";
 import { requireAdmin } from "@/lib/admin";
 
+export const dynamic = "force-dynamic";
+
 type FrameRow = {
   id: number;
   name: string;
@@ -15,7 +17,7 @@ type FrameRow = {
 
 async function getFrames() {
   return dbQuery<FrameRow[]>(
-    "SELECT id, name, description, image_url, preview_url, rarity, active, sort_order FROM site_profile_frames ORDER BY sort_order ASC, id DESC",
+    "SELECT id, name, description, image_url, preview_url, rarity, active, sort_order FROM site_profile_frames ORDER BY sort_order ASC, id DESC"
   );
 }
 
@@ -46,7 +48,7 @@ async function createFrame(formData: FormData) {
       rarity,
       sort_order: sortOrder,
       active,
-    },
+    }
   );
 
   revalidatePath("/perfil");
@@ -87,7 +89,7 @@ async function updateFrame(formData: FormData) {
       rarity,
       sort_order: sortOrder,
       active,
-    },
+    }
   );
 
   revalidatePath("/perfil");
@@ -128,28 +130,15 @@ export default async function AdminMoldurasPage() {
             </label>
             <label>
               Descrição
-              <textarea
-                name="description"
-                rows={2}
-                placeholder="Moldura exclusiva para eventos especiais"
-              />
+              <textarea name="description" rows={2} placeholder="Moldura exclusiva para eventos especiais" />
             </label>
             <label>
               URL da imagem (512x512px PNG)
-              <input
-                name="image_url"
-                type="url"
-                placeholder="/uploads/frames/epic-frame.png"
-                required
-              />
+              <input name="image_url" type="url" placeholder="/uploads/frames/epic-frame.png" required />
             </label>
             <label>
               URL do preview (opcional)
-              <input
-                name="preview_url"
-                type="url"
-                placeholder="/uploads/frames/epic-frame-preview.png"
-              />
+              <input name="preview_url" type="url" placeholder="/uploads/frames/epic-frame-preview.png" />
             </label>
             <label>
               Raridade
@@ -178,7 +167,7 @@ export default async function AdminMoldurasPage() {
         <div>
           <h2 className="card-title">Molduras cadastradas</h2>
           <div className="admin-list">
-            {frames.map((frame) => (
+            {frames.map(frame => (
               <details key={frame.id} className="card admin-card admin-dropdown">
                 <summary>
                   <div className="admin-row">
@@ -206,14 +195,10 @@ export default async function AdminMoldurasPage() {
                       </div>
                     </div>
                     <div className="admin-badges">
-                      <span
-                        className={`status-pill ${frame.active ? "active" : "inactive"}`}
-                      >
+                      <span className={`status-pill ${frame.active ? "active" : "inactive"}`}>
                         {frame.active ? "Ativa" : "Inativa"}
                       </span>
-                      {frame.rarity && (
-                        <span className="status-pill badge">{frame.rarity}</span>
-                      )}
+                      {frame.rarity && <span className="status-pill badge">{frame.rarity}</span>}
                     </div>
                   </div>
                 </summary>
@@ -225,28 +210,15 @@ export default async function AdminMoldurasPage() {
                   </label>
                   <label>
                     Descrição
-                    <textarea
-                      name="description"
-                      rows={2}
-                      defaultValue={frame.description || ""}
-                    />
+                    <textarea name="description" rows={2} defaultValue={frame.description || ""} />
                   </label>
                   <label>
                     URL da imagem (512x512px PNG)
-                    <input
-                      name="image_url"
-                      type="url"
-                      defaultValue={frame.image_url}
-                      required
-                    />
+                    <input name="image_url" type="url" defaultValue={frame.image_url} required />
                   </label>
                   <label>
                     URL do preview (opcional)
-                    <input
-                      name="preview_url"
-                      type="url"
-                      defaultValue={frame.preview_url || ""}
-                    />
+                    <input name="preview_url" type="url" defaultValue={frame.preview_url || ""} />
                   </label>
                   <label>
                     Raridade
@@ -260,18 +232,10 @@ export default async function AdminMoldurasPage() {
                   </label>
                   <label>
                     Ordem
-                    <input
-                      name="sort_order"
-                      type="number"
-                      defaultValue={frame.sort_order}
-                    />
+                    <input name="sort_order" type="number" defaultValue={frame.sort_order} />
                   </label>
                   <label className="checkbox">
-                    <input
-                      name="active"
-                      type="checkbox"
-                      defaultChecked={!!frame.active}
-                    />
+                    <input name="active" type="checkbox" defaultChecked={!!frame.active} />
                     Ativa
                   </label>
                   <div className="admin-actions">
@@ -314,8 +278,8 @@ export default async function AdminMoldurasPage() {
             <strong>Design:</strong> Centro transparente para mostrar o avatar do jogador
           </li>
           <li>
-            <strong>Upload:</strong> Faça upload das imagens em{" "}
-            <code>/public/uploads/frames/</code> e use o caminho relativo
+            <strong>Upload:</strong> Faça upload das imagens em <code>/public/uploads/frames/</code> e use o caminho
+            relativo
           </li>
         </ul>
       </section>

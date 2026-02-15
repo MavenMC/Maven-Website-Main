@@ -17,10 +17,9 @@ type PostRow = {
   active: number;
 };
 
-
 async function getPosts() {
   return dbQuery<PostRow[]>(
-    "SELECT id, title, summary, content, tag, cover, cover_label, published_at, sort_order, active FROM site_posts WHERE type = 'blog' ORDER BY published_at DESC, sort_order ASC, id DESC",
+    "SELECT id, title, summary, content, tag, cover, cover_label, published_at, sort_order, active FROM site_posts WHERE type = 'blog' ORDER BY published_at DESC, sort_order ASC, id DESC"
   );
 }
 
@@ -58,7 +57,7 @@ async function createPost(formData: FormData) {
       published_at: resolvedPublishedAt,
       sort_order: sortOrder,
       active,
-    },
+    }
   );
 
   revalidatePath("/blog");
@@ -107,7 +106,7 @@ async function updatePost(formData: FormData) {
       published_at: publishedAt || null,
       sort_order: sortOrder,
       active,
-    },
+    }
   );
 
   revalidatePath("/blog");
@@ -116,37 +115,37 @@ async function updatePost(formData: FormData) {
 }
 
 async function deletePost(formData: FormData) {
-  \"use server\";
+  "use server";
   await requireAdmin();
-  const id = Number(formData.get(\"id\"));
+  const id = Number(formData.get("id"));
   if (!id) return;
-  await dbQuery(\"DELETE FROM site_posts WHERE id = :id\", { id });
-  revalidatePath(\"/blog\");
-  revalidatePath(\"/admin/blog\");
-  revalidatePath(\"/\");
+  await dbQuery("DELETE FROM site_posts WHERE id = :id", { id });
+  revalidatePath("/blog");
+  revalidatePath("/admin/blog");
+  revalidatePath("/");
 }
 
 export default async function AdminBlogPage() {
   const posts = await getPosts();
 
   return (
-    <div className=\"admin-page\">
-      <header className=\"admin-header\">
+    <div className="admin-page">
+      <header className="admin-header">
         <h1>Blog</h1>
         <p>Gerencie os artigos e guias do blog.</p>
       </header>
 
-      <section className=\"admin-split\">
-        <div className=\"card admin-card\">
-          <h2 className=\"card-title\">Novo post</h2>
-          <form className=\"admin-form\" action={createPost}>
+      <section className="admin-split">
+        <div className="card admin-card">
+          <h2 className="card-title">Novo post</h2>
+          <form className="admin-form" action={createPost}>
             <label>
               Título
-              <input name=\"title\" placeholder=\"Guia de profissões\" />
+              <input name="title" placeholder="Guia de profissões" />
             </label>
             <label>
               Resumo
-              <textarea name=\"summary\" rows={3} />
+              <textarea name="summary" rows={3} />
             </label>
             <label>
               Tag
@@ -158,44 +157,44 @@ export default async function AdminBlogPage() {
             </label>
             <label>
               Capa (preset ou URL)
-              <input name=\"cover\" placeholder=\"academy ou /uploads/blog/capa.jpg\" />
+              <input name="cover" placeholder="academy ou /uploads/blog/capa.jpg" />
             </label>
             <label>
               Label da capa
-              <input name=\"cover_label\" placeholder=\"GUIA\" />
+              <input name="cover_label" placeholder="GUIA" />
             </label>
             <label>
               Data
-              <input type=\"date\" name=\"published_at\" />
+              <input type="date" name="published_at" />
             </label>
             <label>
               Ordem
-              <input type=\"number\" name=\"sort_order\" defaultValue={0} />
+              <input type="number" name="sort_order" defaultValue={0} />
             </label>
-            <label className=\"checkbox\">
-              <input type=\"checkbox\" name=\"active\" defaultChecked />
+            <label className="checkbox">
+              <input type="checkbox" name="active" defaultChecked />
               Ativo
             </label>
-            <button className=\"btn primary\" type=\"submit\">
+            <button className="btn primary" type="submit">
               Salvar post
             </button>
           </form>
         </div>
 
-        <div className=\"card admin-card\">
-          <h2 className=\"card-title\">Posts cadastrados</h2>
-          <div className=\"admin-list\">
-            {posts.map((post) => (
-              <div key={post.id} className=\"card admin-card\">
-                <form className=\"admin-form\" action={updatePost}>
-                  <input type=\"hidden\" name=\"id\" value={post.id} />
+        <div className="card admin-card">
+          <h2 className="card-title">Posts cadastrados</h2>
+          <div className="admin-list">
+            {posts.map(post => (
+              <div key={post.id} className="card admin-card">
+                <form className="admin-form" action={updatePost}>
+                  <input type="hidden" name="id" value={post.id} />
                   <label>
                     Título
-                    <input name=\"title\" defaultValue={post.title} />
+                    <input name="title" defaultValue={post.title} />
                   </label>
                   <label>
                     Resumo
-                    <textarea name=\"summary\" rows={3} defaultValue={post.summary ?? \"\"} />
+                    <textarea name="summary" rows={3} defaultValue={post.summary ?? ""} />
                   </label>
                   <label>
                     Tag
@@ -207,41 +206,37 @@ export default async function AdminBlogPage() {
                   </label>
                   <label>
                     Capa (preset ou URL)
-                    <input name=\"cover\" defaultValue={post.cover ?? \"\"} />
+                    <input name="cover" defaultValue={post.cover ?? ""} />
                   </label>
                   <label>
                     Label da capa
-                    <input name=\"cover_label\" defaultValue={post.cover_label ?? \"\"} />
+                    <input name="cover_label" defaultValue={post.cover_label ?? ""} />
                   </label>
                   <label>
                     Data
-                    <input
-                      type=\"date\"
-                      name=\"published_at\"
-                      defaultValue={formatDateInput(post.published_at)}
-                    />
+                    <input type="date" name="published_at" defaultValue={formatDateInput(post.published_at)} />
                   </label>
                   <label>
                     Ordem
-                    <input type=\"number\" name=\"sort_order\" defaultValue={post.sort_order} />
+                    <input type="number" name="sort_order" defaultValue={post.sort_order} />
                   </label>
-                  <label className=\"checkbox\">
-                    <input type=\"checkbox\" name=\"active\" defaultChecked={Boolean(post.active)} />
+                  <label className="checkbox">
+                    <input type="checkbox" name="active" defaultChecked={Boolean(post.active)} />
                     Ativo
                   </label>
-                  <button className=\"btn primary\" type=\"submit\">
+                  <button className="btn primary" type="submit">
                     Atualizar
                   </button>
                 </form>
                 <form action={deletePost}>
-                  <input type=\"hidden\" name=\"id\" value={post.id} />
-                  <button className=\"btn ghost\" type=\"submit\">
+                  <input type="hidden" name="id" value={post.id} />
+                  <button className="btn ghost" type="submit">
                     Remover
                   </button>
                 </form>
               </div>
             ))}
-            {!posts.length && <p className=\"muted\">Nenhum post cadastrado.</p>}
+            {!posts.length && <p className="muted">Nenhum post cadastrado.</p>}
           </div>
         </div>
       </section>

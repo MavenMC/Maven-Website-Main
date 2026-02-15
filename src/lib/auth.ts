@@ -35,7 +35,7 @@ const Discord = (DiscordProvider as unknown as { default?: typeof DiscordProvide
 async function getPlayerByDiscordId(discordId: string) {
   const rows = await dbQuery<PlayerAccountRow[]>(
     "SELECT discord_id, email, discord_username, discord_avatar, minecraft_name, account_type, verified FROM player_accounts WHERE discord_id = :discord_id LIMIT 1",
-    { discord_id: discordId },
+    { discord_id: discordId }
   );
   return rows[0] ?? null;
 }
@@ -43,7 +43,7 @@ async function getPlayerByDiscordId(discordId: string) {
 async function getPlayerByEmail(email: string) {
   const rows = await dbQuery<PlayerAccountRow[]>(
     "SELECT discord_id, email, discord_username, discord_avatar, minecraft_name, account_type, verified FROM player_accounts WHERE email = :email LIMIT 1",
-    { email },
+    { email }
   );
   return rows[0] ?? null;
 }
@@ -51,7 +51,7 @@ async function getPlayerByEmail(email: string) {
 async function getAdminByEmail(email: string) {
   const rows = await dbQuery<AdminUserRow[]>(
     "SELECT id, email, name, passwordHash, role FROM store_admin_users WHERE email = :email LIMIT 1",
-    { email },
+    { email }
   );
   return rows[0] ?? null;
 }
@@ -59,16 +59,13 @@ async function getAdminByEmail(email: string) {
 async function checkAdminAccess(discordId: string) {
   const rows = await dbQuery<AdminAccessRow[]>(
     "SELECT discord_id, is_active, access_level FROM admin_access WHERE discord_id = :discord_id AND is_active = 1 LIMIT 1",
-    { discord_id: discordId },
+    { discord_id: discordId }
   );
   return rows[0] ?? null;
 }
 
 async function updateAdminLastLogin(discordId: string) {
-  await dbQuery(
-    "UPDATE admin_access SET last_login = NOW() WHERE discord_id = :discord_id",
-    { discord_id: discordId },
-  );
+  await dbQuery("UPDATE admin_access SET last_login = NOW() WHERE discord_id = :discord_id", { discord_id: discordId });
 }
 
 async function ensurePlayerIdentity({
@@ -93,7 +90,7 @@ async function ensurePlayerIdentity({
         email: email ?? null,
         name: name ?? null,
         avatar: image ?? null,
-      },
+      }
     );
     return providerAccountId;
   }
@@ -108,7 +105,7 @@ async function ensurePlayerIdentity({
           name: name ?? null,
           avatar: image ?? null,
           email,
-        },
+        }
       );
       return providerAccountId;
     }
@@ -125,7 +122,7 @@ async function ensurePlayerIdentity({
       discord_username: name ?? null,
       discord_avatar: image ?? null,
       account_type: "pirata",
-    },
+    }
   );
 
   return providerAccountId;
@@ -195,9 +192,7 @@ export const authOptions: NextAuthOptions = {
           id: profile.id,
           name: profile.username,
           email: profile.email,
-          image: profile.avatar
-            ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png`
-            : null,
+          image: profile.avatar ? `https://cdn.discordapp.com/avatars/${profile.id}/${profile.avatar}.png` : null,
           username: profile.username,
         };
       },
@@ -207,10 +202,11 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, user, account, trigger }) {
       if (account?.provider === "credentials") {
-        if (user?.role) (token as typeof token & { role?: string }).role = user.role as string;
+        if ((user as typeof user & { role?: string })?.role)
+          (token as typeof token & { role?: string }).role = (user as typeof user & { role?: string }).role as string;
         if ((user as typeof user & { adminId?: string }).adminId) {
           (token as typeof token & { adminId?: string }).adminId = String(
-            (user as typeof user & { adminId?: string }).adminId,
+            (user as typeof user & { adminId?: string }).adminId
           );
         }
         return token;
