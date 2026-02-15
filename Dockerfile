@@ -1,44 +1,45 @@
-FROM docker.io/oven/bun:1-slim AS base
+# Base image
+FROM node:20-slim AS base
 
-# Install dependencies only when needed
+RUN apt-get update && apt-get install -y \
+    openssl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install dependencies
 FROM base AS deps
 WORKDIR /app
-COPY package.json bun.lock ./
-RUN bun install --frozen-lockfile
+COPY package.json ./
+RUN npm install
 
-# Rebuild the source code only when needed
+# Build the project
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
 
-RUN bun run build
+RUN npm run build
 
-# Production image, copy all the files and run next
+# Production runner
 FROM base AS runner
 WORKDIR /app
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-RUN groupadd --system --gid 1001 nodejs || addgroup -S -G nodejs nodejs || true
-RUN useradd --system --uid 1001 nextjs || adduser -S -U nextjs || true
+RUN groupadd --system --gid 1001 nodejs && useradd --system --uid 1001 nextjs -g nodejs
 
 COPY --from=builder /app/public ./public
-
-RUN mkdir .next
-RUN chown nextjs:nodejs .next
-
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/prisma /app/.env* ./
 
 USER nextjs
-
 EXPOSE 8080
-
 ENV PORT=8080
 ENV HOSTNAME="0.0.0.0"
 
-CMD ["bun", "server.js"]
+CMD ["node", "server.js"]
