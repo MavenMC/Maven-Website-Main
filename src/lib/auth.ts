@@ -31,6 +31,15 @@ type AdminUserRow = {
 };
 
 const Discord = (DiscordProvider as unknown as { default?: typeof DiscordProvider }).default ?? DiscordProvider;
+const isProduction = process.env.NODE_ENV === "production";
+
+if (!process.env.NEXTAUTH_URL && !isProduction) {
+  process.env.NEXTAUTH_URL = process.env.NEXT_PUBLIC_AUTH_CENTER_URL ?? "http://localhost:3000";
+}
+
+if (!process.env.NEXTAUTH_SECRET && !isProduction) {
+  process.env.NEXTAUTH_SECRET = "dev-nextauth-secret-change-me";
+}
 
 async function getPlayerByDiscordId(discordId: string) {
   const rows = await dbQuery<PlayerAccountRow[]>(

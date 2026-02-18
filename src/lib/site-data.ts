@@ -1,5 +1,5 @@
 import "server-only";
-import { dbQuery } from "@/lib/db";
+import { dbQuery, isDbConfigured } from "@/lib/db";
 
 export type SiteStat = {
   id: number;
@@ -121,7 +121,20 @@ export type SiteAnnouncement = {
   ip_text: string | null;
 };
 
+const dbConfigured = isDbConfigured();
+
+function logQueryFailure(message: string, error: unknown) {
+  if (
+    error instanceof Error &&
+    error.message.startsWith("Missing MySQL environment variables")
+  ) {
+    return;
+  }
+  console.warn(message, error);
+}
+
 export async function getSiteAnnouncement() {
+  if (!dbConfigured) return null;
   try {
     const rows = await dbQuery<SiteAnnouncement[]>(
       `SELECT id, title, highlight, ip_text
@@ -134,12 +147,13 @@ export async function getSiteAnnouncement() {
     );
     return rows[0] ?? null;
   } catch (error) {
-    console.warn('Tabela site_announcements não existe ou erro ao buscar anúncio:', error);
+    logQueryFailure('Tabela site_announcements não existe ou erro ao buscar anúncio:', error);
     return null;
   }
 }
 
 export async function getSiteStats(limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SiteStat[]>(
@@ -150,12 +164,13 @@ export async function getSiteStats(limit?: number) {
        ${limitClause}`,
     );
   } catch (error) {
-    console.warn('Tabela site_stats não existe ou erro ao buscar estatísticas:', error);
+    logQueryFailure('Tabela site_stats não existe ou erro ao buscar estatísticas:', error);
     return [];
   }
 }
 
 export async function getSitePosts(type: SitePost["type"], limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SitePost[]>(
@@ -167,13 +182,14 @@ export async function getSitePosts(type: SitePost["type"], limit?: number) {
       { type },
     );
   } catch (error) {
-    console.warn('Tabela site_posts não existe ou erro ao buscar posts:', error);
+    logQueryFailure('Tabela site_posts não existe ou erro ao buscar posts:', error);
     return [];
   }
 }
 
 
 export async function getSitePostById(id: number, type?: SitePost["type"]) {
+  if (!dbConfigured) return null;
   try {
     const rows = await dbQuery<SitePostDetail[]>(
       `SELECT id, type, title, summary, content, tag, cover, cover_label, published_at
@@ -186,12 +202,13 @@ export async function getSitePostById(id: number, type?: SitePost["type"]) {
     );
     return rows[0] ?? null;
   } catch (error) {
-    console.warn("Tabela site_posts nao existe ou erro ao buscar post:", error);
+    logQueryFailure("Tabela site_posts nao existe ou erro ao buscar post:", error);
     return null;
   }
 }
 
 export async function getChangelogEntries(limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SiteChangelogEntry[]>(
@@ -202,12 +219,13 @@ export async function getChangelogEntries(limit?: number) {
        ${limitClause}`,
     );
   } catch (error) {
-    console.warn('Tabela site_changelog_entries não existe ou erro ao buscar changelog:', error);
+    logQueryFailure('Tabela site_changelog_entries não existe ou erro ao buscar changelog:', error);
     return [];
   }
 }
 
 export async function getForumCategories(limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SiteForumCategory[]>(
@@ -218,12 +236,13 @@ export async function getForumCategories(limit?: number) {
        ${limitClause}`,
     );
   } catch (error) {
-    console.warn('Tabela site_forum_categories não existe ou erro ao buscar categorias:', error);
+    logQueryFailure('Tabela site_forum_categories não existe ou erro ao buscar categorias:', error);
     return [];
   }
 }
 
 export async function getSocialLinks(limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SiteSocialLink[]>(
@@ -234,12 +253,13 @@ export async function getSocialLinks(limit?: number) {
        ${limitClause}`,
     );
   } catch (error) {
-    console.warn('Tabela site_social_links não existe ou erro ao buscar links sociais:', error);
+    logQueryFailure('Tabela site_social_links não existe ou erro ao buscar links sociais:', error);
     return [];
   }
 }
 
 export async function getStaffChanges(limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SiteStaffChange[]>(
@@ -250,12 +270,13 @@ export async function getStaffChanges(limit?: number) {
        ${limitClause}`,
     );
   } catch (error) {
-    console.warn("Tabela site_staff_changes nao existe ou erro ao buscar mudancas:", error);
+    logQueryFailure("Tabela site_staff_changes nao existe ou erro ao buscar mudancas:", error);
     return [];
   }
 }
 
 export async function getForumCategoryById(id: number) {
+  if (!dbConfigured) return null;
   try {
     const rows = await dbQuery<SiteForumCategory[]>(
       `SELECT id, title, description, icon, variant
@@ -266,12 +287,13 @@ export async function getForumCategoryById(id: number) {
     );
     return rows[0] ?? null;
   } catch (error) {
-    console.warn("Tabela site_forum_categories nao existe ou erro ao buscar categoria:", error);
+    logQueryFailure("Tabela site_forum_categories nao existe ou erro ao buscar categoria:", error);
     return null;
   }
 }
 
 export async function getForumPostsByCategory(categoryId: number, limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SiteForumPost[]>(
@@ -292,12 +314,13 @@ export async function getForumPostsByCategory(categoryId: number, limit?: number
       { category_id: categoryId },
     );
   } catch (error) {
-    console.warn("Tabela site_forum_posts nao existe ou erro ao buscar posts:", error);
+    logQueryFailure("Tabela site_forum_posts nao existe ou erro ao buscar posts:", error);
     return [];
   }
 }
 
 export async function getForumPostById(id: number) {
+  if (!dbConfigured) return null;
   try {
     const rows = await dbQuery<SiteForumPostDetail[]>(
       `SELECT p.id,
@@ -319,12 +342,13 @@ export async function getForumPostById(id: number) {
     );
     return rows[0] ?? null;
   } catch (error) {
-    console.warn("Tabela site_forum_posts nao existe ou erro ao buscar post:", error);
+    logQueryFailure("Tabela site_forum_posts nao existe ou erro ao buscar post:", error);
     return null;
   }
 }
 
 export async function getSurvivalLeaderboard(limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SiteLeaderboardEntry[]>(
@@ -349,12 +373,13 @@ export async function getSurvivalLeaderboard(limit?: number) {
        ${limitClause}`,
     );
   } catch (error) {
-    console.warn("Tabela account_stats nao existe ou erro ao buscar leaderboard:", error);
+    logQueryFailure("Tabela account_stats nao existe ou erro ao buscar leaderboard:", error);
     return [];
   }
 }
 
 export async function getPunishments(limit?: number) {
+  if (!dbConfigured) return [];
   try {
     const limitClause = limit ? `LIMIT ${Number(limit)}` : "";
     return await dbQuery<SitePunishment[]>(
@@ -371,7 +396,7 @@ export async function getPunishments(limit?: number) {
        ${limitClause}`,
     );
   } catch (error) {
-    console.warn("Tabela punicoes nao existe ou erro ao buscar punicoes:", error);
+    logQueryFailure("Tabela punicoes nao existe ou erro ao buscar punicoes:", error);
     return [];
   }
 }
@@ -401,6 +426,9 @@ function resolveDateRange(filters: PunishmentFilters) {
 }
 
 export async function getPunishmentsPaged(filters: PunishmentFilters) {
+  if (!dbConfigured) {
+    return { rows: [], total: 0, page: 1, totalPages: 1, limit: 20 } as PunishmentPage;
+  }
   try {
     const conditions: string[] = [];
     const params: Record<string, unknown> = {};
@@ -482,7 +510,7 @@ export async function getPunishmentsPaged(filters: PunishmentFilters) {
 
     return { rows, total, page, totalPages, limit } as PunishmentPage;
   } catch (error) {
-    console.warn("Tabela punicoes nao existe ou erro ao buscar punicoes:", error);
+    logQueryFailure("Tabela punicoes nao existe ou erro ao buscar punicoes:", error);
     return { rows: [], total: 0, page: 1, totalPages: 1, limit: 20 } as PunishmentPage;
   }
 }
