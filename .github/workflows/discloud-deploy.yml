@@ -34,3 +34,4 @@ jobs:
           command: "app-commit"
           appId: "maven-website"
           file: "deploy.zip"
+          actionIfExists: "RESTART"
