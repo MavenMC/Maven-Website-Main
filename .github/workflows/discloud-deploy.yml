@@ -24,6 +24,9 @@ jobs:
           -x ".github/*" \
           -x "out/*"
 
+      - name: Check zip size
+        run: ls -lh deploy.zip
+
       - name: Discloud App Commit
         uses: marco-quicula/discloud-api-action@v0.1.1
         with:
